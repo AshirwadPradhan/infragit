@@ -4,7 +4,7 @@
 from pki_util import generate_private_key, generate_public_key
 
 if __name__ == "__main__":
-    private_key = generate_private_key('ca-private-key.pem', 'thisis_secret')
+    private_key = generate_private_key('ca-private-key.pem', 'this')
 
     generate_public_key(private_key=private_key,
                         filename='ca-public-key.pem',
