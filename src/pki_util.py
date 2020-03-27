@@ -37,8 +37,8 @@ def generate_public_key(private_key, filename:str, **kwargs):
     
     # Issuer and subject is same becouse they are self-signed CA
     issuer = subject
-    valid_from = datetime.utcnow()
-    valid_to = valid_from + timedelta(days=60)
+    valid_from = datetime.utcnow() - timedelta(days=2)
+    valid_to = valid_from + timedelta(days=365)
 
     builder = (x509.CertificateBuilder()
                 .subject_name(subject)
@@ -47,6 +47,7 @@ def generate_public_key(private_key, filename:str, **kwargs):
                 .serial_number(x509.random_serial_number())
                 .not_valid_before(valid_from)
                 .not_valid_after(valid_to))
+    builder = builder.add_extension(x509.BasicConstraints(ca=True, path_length=1), critical=True)
     
     public_key = builder.sign(private_key, hashes.SHA256(), default_backend())
 
@@ -83,8 +84,8 @@ def generate_csr(private_key, filename, **kwargs):
 def sign_csr(csr, ca_public_key, ca_private_key, filename):
 
     #Sign the csr for the server by CA
-    valid_from = datetime.now()
-    valid_to = valid_from + timedelta(days=45)
+    valid_from = datetime.utcnow() - timedelta(days=1)
+    valid_to = valid_from + timedelta(days=60)
 
     builder = (x509.CertificateBuilder()
                 .subject_name(csr.subject)
