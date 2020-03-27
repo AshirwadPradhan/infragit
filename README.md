@@ -6,4 +6,4 @@
 
 
 ##### Note :- Add CA's public key to Trusted Root Certificates if you face any 'Invalid CA certificate' issue
-#####           (Microsoft Windows 10 has it)
+#####           (required for Microsoft Windows 10)

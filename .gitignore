@@ -130,3 +130,6 @@ dmypy.json
 
 # Certificate files
 *.pem
+
+#database json files
+dbs/
