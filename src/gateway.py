@@ -229,7 +229,24 @@ def pull_repo():
                 with open(c_path, 'r') as f:
                     data = f.read()
                 
-                d = {'repo_name': repo_name, 'data': data, 'status': 'OK'}
+                #get session key
+                session_key = repo_info['session_key']
+
+                if session_key is not None:
+                    key = session_key[:32].encode('utf-8')
+                    
+                    #start the encryption process
+                    cipher = AES.new(key, AES.MODE_GCM)
+                    ciphertext, tag = cipher.encrypt_and_digest(data.encode('utf-8'))
+
+                    enc_data = bytearray(cipher.nonce)
+                    enc_data.extend(tag)
+                    enc_data.extend(ciphertext)
+                    enc_data = enc_data.hex()
+                        
+                    d = {'repo_name': repo_name, 'data': enc_data, 'status': 'OK'}
+                else:
+                    d = {'status': 'Unable to get session key.. Please check validity of the repo'}
             else:
                 d = {'status': f'ERROR: Authentication Error! User not in list of valid users for this repo'}
         else:

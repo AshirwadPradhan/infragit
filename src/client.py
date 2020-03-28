@@ -209,14 +209,39 @@ class IGCMD(Cmd):
                 status = json_data.get('status', None)
                 repo_name = json_data.get('repo_name', None)
 
-                c_path = os.path.join('dbctest', inp)
                 if status == 'OK' and data is not None:
-                    try:
-                        with open(c_path, 'w+') as f:
-                            f.write(data)
-                        print(f'Successfully pulled changes to Repo : {repo_name}')
-                    except:
-                        print('*** Error writing to local repo.. Pull again from remote')
+
+                    #decrypt the data
+                    #format the data
+                    enc_data = bytes.fromhex(data)
+                    nonce = enc_data[:16]
+                    tag = enc_data[16:32]
+                    ciphertext = enc_data[32:]
+
+                    #get the session key for decryption
+                    ress = requests.post('https://localhost:5683/get_sk', json={'repo_name':inp, 'user':user}, verify='ca-public-key.pem')
+                    sess_data = json.loads(ress.text)
+                    session_key = sess_data.get('session_key', None)
+
+                    if session_key is not None:
+                        key = session_key[:32].encode('utf-8')
+                    
+                        cipher = AES.new(key, AES.MODE_GCM, nonce)
+                        try:
+                            plain_data = cipher.decrypt_and_verify(ciphertext, tag)
+                            #edit the repo
+                            plain_data = plain_data.decode('utf-8')
+                            c_path = os.path.join('dbctest', inp)
+                            try:
+                                with open(c_path, 'w+') as f:
+                                    f.write(plain_data)
+                                print(f'Successfully pulled changes to Repo : {repo_name}')
+                            except:
+                                print('*** Error writing to local repo.. Pull again from remote')
+                        except ValueError:
+                            print('*** Tampered Data')
+                    else:
+                        print('*** Unable to get session key')
                 elif status == 'OK' and data is None:
                     print('*** No data received')
                 elif status != 'OK':
