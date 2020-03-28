@@ -8,6 +8,7 @@ from Crypto.Random import get_random_bytes
 from Crypto.Hash import SHA512
 import base64
 from kms import get_session_key, get_data_key
+from Crypto.Cipher import AES
 
 SECRET_MESSAGE = 'very secret'
 app = Flask(__name__)
@@ -174,12 +175,33 @@ def push_repo():
             if user in repo_users:
                 data = request.json['data']
                 
-                #edit the repo
-                c_path = os.path.join('dbtest', repo_name)
-                with open(c_path, 'w+') as f:
-                    f.write(data)
+                #format the data
+                enc_data = bytes.fromhex(data)
+                nonce = enc_data[:16]
+                tag = enc_data[16:32]
+                ciphertext = enc_data[32:]
                 
-                d = {'repo_name': repo_name, 'status': 'OK'}
+                #get session key
+                session_key = repo_info['session_key']
+
+                if session_key is not None:
+
+                    key = session_key[:32].encode('utf-8')
+                    
+                    cipher = AES.new(key, AES.MODE_GCM, nonce)
+                    try:
+                        plain_data = cipher.decrypt_and_verify(ciphertext, tag)
+                        #edit the repo
+                        plain_data = plain_data.decode('utf-8')
+                        c_path = os.path.join('dbtest', repo_name)
+                        with open(c_path, 'w+') as f:
+                            f.write(plain_data)
+                        
+                        d = {'repo_name': repo_name, 'status': 'OK'}
+                    except ValueError:
+                        d = {'status': 'Tampered Data'}
+                else:
+                    d = {'status': 'Unable to get session key.. Please check validity of the repo'}
             else:
                 d = {'status': f'ERROR: Authentication Error! User not in list of valid users for this repo'}
         else:

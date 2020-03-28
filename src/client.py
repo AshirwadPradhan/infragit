@@ -5,6 +5,7 @@ from cmd import Cmd
 import getpass
 from Crypto.Random import get_random_bytes
 from Crypto.Hash import SHA512
+from Crypto.Cipher import AES
 
 class IGCMD(Cmd):
 
@@ -145,11 +146,29 @@ class IGCMD(Cmd):
             #data
             c_path = os.path.join('dbctest', inp)
             try:
+                #get the session key for encryption
+                res = requests.post('https://localhost:5683/get_sk', json={'repo_name':inp, 'user':user}, verify='ca-public-key.pem')
+                sess_data = json.loads(res.text)
+                session_key = sess_data.get('session_key', None)
+                # print(session_key)
+
+                #get unencrypted data
                 with open(c_path, 'r') as f:
                     data = f.read()
-                # print(data)
+                
+                #encrypt the data 
+                key = session_key[:32].encode('utf-8')
+                
+                cipher = AES.new(key, AES.MODE_GCM)
+                ciphertext, tag = cipher.encrypt_and_digest(data.encode('utf-8'))
+
+                enc_data = bytearray(cipher.nonce)
+                enc_data.extend(tag)
+                enc_data.extend(ciphertext)
+                enc_data = enc_data.hex()
+                
                 try:
-                    res = requests.post('https://localhost:5683/push_repo', json={'repo_name':inp, 'data':data, 'user':user}, verify='ca-public-key.pem')
+                    res = requests.post('https://localhost:5683/push_repo', json={'repo_name':inp, 'data':enc_data, 'user':user}, verify='ca-public-key.pem')
                 except ConnectionError:
                     print(' Connection Error: Please check validity of the repo...')
                 json_data:dict = json.loads(res.text)
