@@ -57,7 +57,7 @@ def get_data_key(shared_secret, server_random) -> str:
     # print('Scripting...')
     data_key = scrypt(shared_secret, server_random, key_len=d_key_length, N=2**20, r=8, p=1)
     # print('Done Scripting....')
-    dk_obj = SHA512.new(data_key)
+    dk_obj = SHA256.new(data_key)
 
     return dk_obj.hexdigest()
 

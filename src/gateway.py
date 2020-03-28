@@ -9,9 +9,60 @@ from Crypto.Hash import SHA512
 import base64
 from kms import get_session_key, get_data_key
 from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad, unpad
 
 SECRET_MESSAGE = 'very secret'
 app = Flask(__name__)
+
+def encrypt_with_dk(data, root_key, server_random):
+    ''' Perform envelope encryption '''
+
+    #get the data key
+    data_key = get_data_key(root_key, server_random)
+    data_key = data_key[:32]
+    data_key = bytes(data_key, encoding='utf-8')
+    # print(len(data_key)) 32
+
+    #encrypt data with data key  c = ENCR(data_key, data)
+    # print('this before AES 1')
+    cipher = AES.new(data_key, AES.MODE_CBC)
+    ciphertext = cipher.encrypt(pad(data, AES.block_size))
+    ct_iv = cipher.iv
+    # print(len(ct_iv))  16
+
+    # print('this before AES 2')
+    #encrypt data key with root key   encKey = ENCR(root_key, data_key)
+    cp = AES.new(root_key, AES.MODE_CBC)
+    encKey = cp.encrypt(pad(data_key, AES.block_size))
+    k_iv = cp.iv
+    # print(len(k_iv))  16
+    # print(len(encKey))  48
+
+    enc_msg = bytearray(ct_iv)
+    enc_msg.extend(k_iv)
+    enc_msg.extend(encKey)
+    enc_msg.extend(ciphertext)
+    enc_msg = enc_msg.hex()
+
+    return enc_msg
+
+def decrypt_with_dk(data, root_key, server_random):
+    ''' Perform envelope decryption'''
+
+    data = bytes.fromhex(data)
+    ct_iv = data[:16]
+    k_iv = data[16:32]
+    encKey = data[32:80]
+    ciphertext = data[80:]
+
+    cp = AES.new(root_key, AES.MODE_CBC, k_iv)
+    data_key = unpad(cp.decrypt(encKey), AES.block_size)
+
+    cipher = AES.new(data_key, AES.MODE_CBC, ct_iv)
+    plain_text = unpad(cipher.decrypt(ciphertext), AES.block_size)
+
+    print(plain_text.decode('utf-8'))
+    return plain_text.decode('utf-8')
 
 @app.route('/')
 def get_secret_message():
@@ -185,17 +236,21 @@ def push_repo():
                 session_key = repo_info['session_key']
 
                 if session_key is not None:
-
                     key = session_key[:32].encode('utf-8')
-                    
                     cipher = AES.new(key, AES.MODE_GCM, nonce)
                     try:
                         plain_data = cipher.decrypt_and_verify(ciphertext, tag)
+                        
+                        #get server random
+                        server_random = repo_info['server_random']
+                        # envelope encryption
+                        # print('start ee encr')
+                        ee_plain_data = encrypt_with_dk(plain_data, key, server_random)
                         #edit the repo
-                        plain_data = plain_data.decode('utf-8')
+                        # ee_plain_data = ee_plain_data.decode('utf-8')
                         c_path = os.path.join('dbtest', repo_name)
                         with open(c_path, 'w+') as f:
-                            f.write(plain_data)
+                            f.write(ee_plain_data)
                         
                         d = {'repo_name': repo_name, 'status': 'OK'}
                     except ValueError:
@@ -231,9 +286,14 @@ def pull_repo():
                 
                 #get session key
                 session_key = repo_info['session_key']
+                #get server random
+                server_random = repo_info['server_random']
 
                 if session_key is not None:
                     key = session_key[:32].encode('utf-8')
+
+                    # envelope decryption
+                    data = decrypt_with_dk(data, key, server_random)
                     
                     #start the encryption process
                     cipher = AES.new(key, AES.MODE_GCM)
