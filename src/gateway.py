@@ -49,19 +49,23 @@ def encrypt_with_dk(data, root_key, server_random):
 def decrypt_with_dk(data, root_key, server_random):
     ''' Perform envelope decryption'''
 
+    #get the binary data in required format
+    #extract all the info back as maintained in the structure
     data = bytes.fromhex(data)
     ct_iv = data[:16]
     k_iv = data[16:32]
     encKey = data[32:80]
     ciphertext = data[80:]
 
+    # decipher the data key
     cp = AES.new(root_key, AES.MODE_CBC, k_iv)
     data_key = unpad(cp.decrypt(encKey), AES.block_size)
 
+    # decipher the ciphertext using the data key
     cipher = AES.new(data_key, AES.MODE_CBC, ct_iv)
     plain_text = unpad(cipher.decrypt(ciphertext), AES.block_size)
 
-    print(plain_text.decode('utf-8'))
+    # print(plain_text.decode('utf-8'))
     return plain_text.decode('utf-8')
 
 @app.route('/')
