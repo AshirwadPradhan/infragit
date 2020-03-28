@@ -4,6 +4,8 @@ from localdb import IGDB
 import hashlib
 import os
 from datetime import datetime
+from Crypto.Random import get_random_bytes
+import base64
 
 SECRET_MESSAGE = 'very secret'
 app = Flask(__name__)
@@ -22,6 +24,12 @@ def resgister_client():
         username = request.json['username']
         password = request.json['password']
 
+        #Preparing salt
+        rand_bytes = get_random_bytes(16)
+        b64_salt = base64.b64encode(rand_bytes)
+        salt = b64_salt.decode('utf-8')
+        # print(salt)
+
         hashed_username = hashlib.sha256()
         hashed_username.update(username.encode('utf-8'))
         hashusr = hashed_username.hexdigest()
@@ -29,7 +37,13 @@ def resgister_client():
         igdb_users = IGDB(os.path.join('dbs','users.json'))
 
         if igdb_users.getd(hashusr) is None:
-            data = {'username': username, 'password': password}
+
+            hashed_p = hashlib.sha256()
+            hashed_p.update(password.encode('utf-8'))
+            hashed_p.update(salt.encode('utf-8'))
+            hashpass = hashed_p.hexdigest()
+
+            data = {'username': username, 'password': hashpass, 'salt': salt}
             if igdb_users.setd(hashusr, data):
                 return 'OK'
             else: 
@@ -50,10 +64,16 @@ def login_client():
         igdb_users = IGDB(os.path.join('dbs', 'users.json'))
         igdb_logclient = IGDB(os.path.join('dbs', 'logclient.json'))
 
-        data:dict = igdb_users.getd(hashusr) 
+        data:dict = igdb_users.getd(hashusr)
+
         if data is not None:
             #the user is registered
-            if password == data.get('password'):
+            salt = data.get('salt')
+            hashed_p = hashlib.sha256()
+            hashed_p.update(password.encode('utf-8'))
+            hashed_p.update(salt.encode('utf-8'))
+            h_pass = hashed_p.hexdigest() 
+            if h_pass == data.get('password'):
                 #check password for login
                 luser:str = igdb_logclient.getd(hashusr)
                 if luser is None:
@@ -73,9 +93,9 @@ def login_client():
                         return ' DB Error'
             else:
                 if igdb_logclient.deld(hashusr):
-                    return ' Wrong Password! Please Try Again'
+                    return ' Wrong Password! Your are logged out \n Please Try Again'
                 else:
-                    return ' DB Error with Wrong Password'
+                    return ' Wrong Password! Please Try Again'
         else:
             #the user is not registered
             return ' User Not Registered'
