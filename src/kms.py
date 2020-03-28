@@ -31,8 +31,8 @@ def get_session_key(client_random, server_random) -> str:
         b64_bcl = base64.b64encode(SHA256.new(l_b64).digest())
         
         #use of HSM module to get cryptographically secure PRN
-        cost_f = randrange(12, 12)
-        cost_l = randrange(12, 12)
+        cost_f = randrange(13, 14)
+        cost_l = randrange(13, 14)
 
         #now bcrypt the keys that we got before
         print(len(b64_bcf))
