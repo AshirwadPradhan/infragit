@@ -148,7 +148,7 @@ def create_repo():
             with open(c_path, 'w+') as f:
                 f.write('This is a dummy repo')
 
-            data = {'admin': admin, 'session_key': session_key, 'users': [admin]}
+            data = {'admin': admin, 'session_key': session_key, 'server_random': server_random, 'users': [admin]}
             if igdb_repoinf.setd(repo_name, data):
                 d = {'repo_name': repo_name, 'status': 'OK'}
             else:
@@ -157,3 +157,82 @@ def create_repo():
             d = {'status': f'ERROR: {repo_name} already present'}
         
         return jsonify(d)
+
+@app.route('/push_repo', methods=['POST'])
+def push_repo():
+    if request.method == 'POST':
+        repo_name = request.json['repo_name']
+        user = request.json['user']
+
+        # push the data to the repo
+        igdb_repoinf = IGDB(os.path.join('dbs', 'repoinf.json'))
+
+        if igdb_repoinf.getd(repo_name) is not None:
+
+            repo_info = igdb_repoinf.getd(repo_name)
+            repo_users = repo_info['users']
+            if user in repo_users:
+                data = request.json['data']
+                
+                #edit the repo
+                c_path = os.path.join('dbtest', repo_name)
+                with open(c_path, 'w+') as f:
+                    f.write(data)
+                
+                d = {'repo_name': repo_name, 'status': 'OK'}
+            else:
+                d = {'status': f'ERROR: Authentication Error! User not in list of valid users for this repo'}
+        else:
+            d = {'status': f'ERROR: Invalid {repo_name} repo'}
+        
+        return jsonify(d)
+
+@app.route('/pull_repo', methods=['POST'])
+def pull_repo():
+    if request.method == 'POST':
+        repo_name = request.json['repo_name']
+        user = request.json['user']
+
+        # pull the data to the repo
+        igdb_repoinf = IGDB(os.path.join('dbs', 'repoinf.json'))
+
+        if igdb_repoinf.getd(repo_name) is not None:
+
+            repo_info = igdb_repoinf.getd(repo_name)
+            repo_users = repo_info['users']
+            if user in repo_users:
+                
+                #read the repo
+                c_path = os.path.join('dbtest', repo_name)
+                with open(c_path, 'r') as f:
+                    data = f.read()
+                
+                d = {'repo_name': repo_name, 'data': data, 'status': 'OK'}
+            else:
+                d = {'status': f'ERROR: Authentication Error! User not in list of valid users for this repo'}
+        else:
+            d = {'status': f'ERROR: Invalid {repo_name} repo'}
+        
+        return jsonify(d)
+
+@app.route('/get_sk', methods=['POST'])
+def get_sk():
+    if request.method == 'POST':
+        repo_name = request.json['repo_name']
+        user = request.json['user']
+
+        igdb_repoinf = IGDB(os.path.join('dbs', 'repoinf.json'))
+
+        if igdb_repoinf.getd(repo_name) is not None:
+
+            repo_info = igdb_repoinf.getd(repo_name)
+            repo_users = repo_info['users']
+            if user in repo_users:
+                #get the session key
+                session_key = repo_info['session_key']
+                d = {'session_key': session_key}
+
+                return jsonify(d)
+
+        return None
+            

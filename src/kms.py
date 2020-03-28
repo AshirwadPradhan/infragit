@@ -31,8 +31,8 @@ def get_session_key(client_random, server_random) -> str:
         b64_bcl = base64.b64encode(SHA256.new(l_b64).digest())
         
         #use of HSM module to get cryptographically secure PRN
-        cost_f = randrange(12, 20)
-        cost_l = randrange(12, 20)
+        cost_f = randrange(12, 12)
+        cost_l = randrange(12, 12)
 
         #now bcrypt the keys that we got before
         print(len(b64_bcf))
@@ -66,3 +66,5 @@ def get_data_key(shared_secret, server_random) -> str:
 # if __name__ == "__main__":
 #     # print(get_session_key('this is random', 'this also very random'))
 #     print(get_data_key(get_session_key('this is random', 'this also very random'), 'this is also very random'))
+    # d = get_data_key('459e353e92cb3fb5a505f12165336b3e83a17c8c3658e80a8400382372aeed7566ef397b80a0d3434c59a2675953ee94db3a0eaac35fc69f0b403b397dbc8e4d','this is random')
+    # print(d)

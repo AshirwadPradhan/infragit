@@ -1,5 +1,6 @@
 import requests
 import json
+import os
 from cmd import Cmd
 import getpass
 from Crypto.Random import get_random_bytes
@@ -94,7 +95,7 @@ class IGCMD(Cmd):
             print(f'*** Too Less Arguments')
 
     def do_creater(self, inp:str):
-        '''    Create a Repo. \n    Usage: create <repo name>'''
+        '''    Create a Repo. \n    Usage: creater <repo name>'''
         parsed_prompt = IGCMD.prompt.split()
         if len(inp) > 0 and len(parsed_prompt) > 1:
 
@@ -117,15 +118,99 @@ class IGCMD(Cmd):
 
             if status == 'OK' and repo_name is not None:
                 print(f'Repo Created : {repo_name}')
+                #create a local repo
+                c_path = os.path.join('dbctest', repo_name)
+                with open(c_path, 'w+') as f:
+                    f.write('This is a dummy repo')
+
             elif status != 'OK':
-                print(f' ERROR: {status}')
+                print(f'{status}')
             else:
-                print(f'ERR: {res.text}')
+                print(f'{res.text}')
         elif len(inp) > 0 and len(parsed_prompt) == 1:
             print('*** Login to create a repo')
         else:
             print('*** Too Less Arguments')
     
+    def do_pushr(self, inp:str):
+        '''    Push a Repo with local changes \n    Usage: pushr <repo name>'''
+        parsed_prompt = IGCMD.prompt.split()
+        if len(inp) > 0 and len(parsed_prompt) > 1:
+
+            #user
+            user = parsed_prompt[1]
+            l_inp = len(user)
+            user = str(user[:l_inp-1])
+
+            #data
+            c_path = os.path.join('dbctest', inp)
+            try:
+                with open(c_path, 'r') as f:
+                    data = f.read()
+                # print(data)
+                try:
+                    res = requests.post('https://localhost:5683/push_repo', json={'repo_name':inp, 'data':data, 'user':user}, verify='ca-public-key.pem')
+                except ConnectionError:
+                    print(' Connection Error: Please check validity of the repo...')
+                json_data:dict = json.loads(res.text)
+                # print(json_data)
+                repo_name = json_data.get('repo_name', None)
+                status = json_data.get('status', None)
+
+                if status == 'OK' and repo_name is not None:
+                    print(f'Successfully pushed changes to Repo : {repo_name}')
+                elif status != 'OK':
+                    print(f'{status}')
+                else:
+                    print(f'{res.text}')
+            except FileNotFoundError:
+                print(f'*** The repo {inp} is not present locally')
+        elif len(inp) > 0 and len(parsed_prompt) == 1:
+            print('*** Login to push to a repo')
+        else:
+            print('*** Too Less Arguments')
+
+
+    def do_pullr(self, inp:str):
+        '''    Pull a Repo with local changes \n    Usage: pullr <repo name>'''
+        parsed_prompt = IGCMD.prompt.split()
+        if len(inp) > 0 and len(parsed_prompt) > 1:
+
+            #user
+            user = parsed_prompt[1]
+            l_inp = len(user)
+            user = str(user[:l_inp-1])
+            
+            #pull from remote repo
+            try:
+                res = requests.post('https://localhost:5683/pull_repo', json={'repo_name':inp, 'user':user}, verify='ca-public-key.pem')
+                #data
+                json_data:dict = json.loads(res.text)
+                data = json_data.get('data', None)
+                status = json_data.get('status', None)
+                repo_name = json_data.get('repo_name', None)
+
+                c_path = os.path.join('dbctest', inp)
+                if status == 'OK' and data is not None:
+                    try:
+                        with open(c_path, 'w+') as f:
+                            f.write(data)
+                        print(f'Successfully pulled changes to Repo : {repo_name}')
+                    except:
+                        print('*** Error writing to local repo.. Pull again from remote')
+                elif status == 'OK' and data is None:
+                    print('*** No data received')
+                elif status != 'OK':
+                    print(f' {status}')
+                else:
+                    print(f'{res.text}')
+            except ConnectionError:
+                print(' Connection Error: Please check validity of the repo...')
+
+        elif len(inp) > 0 and len(parsed_prompt) == 1:
+            print('*** Login to push to a repo')
+        else:
+            print('*** Too Less Arguments')
 
 
     # On EOF exit the command prompt
