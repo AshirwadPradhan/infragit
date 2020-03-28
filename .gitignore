@@ -132,4 +132,4 @@ dmypy.json
 *.pem
 
 #database json files
-dbs/
+db*/

@@ -1,5 +1,5 @@
 # Utility Module
-# Provides methods
+# Provides following helper methods for PKI
 #           1. Generate private key
 #           2. Generate X509 certificate for the self-signing CA (here the organization is the CA)
 #           3. Generate X509 for the server hosted by the organization

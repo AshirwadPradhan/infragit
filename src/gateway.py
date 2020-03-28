@@ -1,11 +1,13 @@
 # The GATEWAY for the client (entry point to the application)
-from flask import Flask, request
+from flask import Flask, request, jsonify
 from localdb import IGDB
 import hashlib
 import os
 from datetime import datetime
 from Crypto.Random import get_random_bytes
+from Crypto.Hash import SHA512
 import base64
+from kms import get_session_key, get_data_key
 
 SECRET_MESSAGE = 'very secret'
 app = Flask(__name__)
@@ -105,16 +107,53 @@ def logout_client():
     if request.method == 'POST':
         username = request.json['username']
 
+        #calculate the hash of the username
         hashed_username = hashlib.sha256()
         hashed_username.update(username.encode('utf-8'))
         hashusr = hashed_username.hexdigest()
 
         igdb_logclient = IGDB(os.path.join('dbs','logclient.json'))
 
+        #Check if the user is logged in 
         if igdb_logclient.getd(hashusr) is not None:
+            #if the user is deleted from logclient database return OK 
             if igdb_logclient.deld(hashusr):
                 return 'OK'
             else:
                 return ' DB Error while logging out'
         else:
             return ' User not logged in!'
+
+@app.route('/create_repo', methods=['POST'])
+def create_repo():
+    if request.method == 'POST':
+        repo_name = request.json['repo_name']
+
+        #store the session key with admin of the repo
+        igdb_repoinf = IGDB(os.path.join('dbs', 'repoinf.json'))
+
+        if igdb_repoinf.getd(repo_name) is None:
+            client_random = request.json['cr']
+            admin = request.json['admin']
+            #create server random 
+            sr_b = get_random_bytes(64)
+            server_random = SHA512.new(sr_b).hexdigest()
+
+            #get the session key of the repo
+            session_key = get_session_key(client_random, server_random)
+            print(session_key)
+            
+            #create the repo
+            c_path = os.path.join('dbtest', repo_name)
+            with open(c_path, 'w+') as f:
+                f.write('This is a dummy repo')
+
+            data = {'admin': admin, 'session_key': session_key, 'users': [admin]}
+            if igdb_repoinf.setd(repo_name, data):
+                d = {'repo_name': repo_name, 'status': 'OK'}
+            else:
+                d = {'status': f'ERROR: Error in creating {repo_name} in the repository'}
+        else:
+            d = {'status': f'ERROR: {repo_name} already present'}
+        
+        return jsonify(d)
