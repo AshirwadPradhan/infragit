@@ -32,9 +32,9 @@ else
 ROOT_L := $(shell pwd)
 UNAME_S := $(shell uname -s)
 systest:
-        @echo UNAME_S
+	@echo UNAME_S
 clean:
-    rm -rf $(ROOT_L)/src/dbctest
+	rm -rf $(ROOT_L)/src/dbctest
 	rm -rf $(ROOT_L)/src/dbs
 	rm -rf $(ROOT_L)/src/dbtest
 	rm -rf $(ROOT_L)/src/__pycache__
@@ -47,7 +47,7 @@ init:
 	echo {} > $(ROOT_L)/src/dbs/users.json
 	mkdir $(ROOT_L)/src/dbtest
 install:
-    pip3 install -r requirements.txt
+	pip3 install -r requirements.txt
 ifeq ($(UNAME_S),Darwin)
 	CFLAGS="-I/usr/local/opt/openssl/include"
 	LDFLAGS="-L/usr/local/opt/openssl/lib"
