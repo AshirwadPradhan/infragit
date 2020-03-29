@@ -1,7 +1,7 @@
 # IntraGIT
 ## A SaaS secure VCS (based on Git) for confidential repositories. 
 
-#### How to setup this program:
+#### How to setup this service:
 ***
 1. Make sure you are connected to internet
 2. This repo uses `make` to automate build. Make sure to install it. [For Debian(Ubuntu), apt-get install make]
@@ -26,6 +26,10 @@
     * > `creater a` To create a repo with name 'a'
     * > `logout user` To logout of that account
 11. Example 2. Pushing and Pulling from a remote repo.
+    * > The folder *dbtest* is the remote repository container and *dbctest* is the local repository container
+    * > All the repo like 'a' created in the previous example is stored in human readble form in *dbctest* while data in *dbtest* is stored encrypted
+    * > Make changes to the local repo in *dbctest* to push the changes to remote repo in *dbtest*
+    * > To get any new changes from remote repo in *dbtest* pull the changes to local repo in *dbctest*
     * > `pushr a` Push local changes of repo 'a' to remote
     * > `pullr a` Pull remote changes of repo 'a' to local
 
