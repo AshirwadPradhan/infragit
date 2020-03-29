@@ -15,6 +15,8 @@ init:
 	echo {} > $(ROOT_D)\src\dbs\logclient.json
 	echo {} > $(ROOT_D)\src\dbs\repoinf.json
 	echo {} > $(ROOT_D)\src\dbs\users.json
+install:
+	pip install -r requirements.txt
 run-server:
 	@echo Server is NOT supported in Windows... Use a Linux Machine!
 run-client:
@@ -25,7 +27,7 @@ server-cert:
 	python $(ROOT_D)\src\server_cert_gen.py
 	python $(ROOT_D)\src\csr_sign.py
 cert: ca-cert server-cert
-prepare-env: init cert
+prepare-env: install init cert
 else
 ROOT_L := $(shell pwd)
 systest:
@@ -43,6 +45,8 @@ init:
 	echo {} > $(ROOT_L)/src/dbs/repoinf.json
 	echo {} > $(ROOT_L)/src/dbs/users.json
 	mkdir $(ROOT_L)/src/dbtest
+install:
+	pip3 install -r requirements.txt
 run-server:
 	uwsgi --master --https localhost:5683,src/server-public-key.pem,src/server-private-key.pem --wsgi-file src/gateway.py --callable app --processes 4 --threads 4
 run-client:
@@ -53,5 +57,5 @@ server-cert:
 	python3 $(ROOT_L)/src/server_cert_gen.py
 	python3 $(ROOT_L)/src/csr_sign.py
 cert: ca-cert server-cert
-prepare-dev: init cert
+prepare-dev: install init cert
 endif
