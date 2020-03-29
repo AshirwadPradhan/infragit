@@ -125,12 +125,12 @@ class IGCMD(Cmd):
             status = json_data.get('status', None)
 
             if status == 'OK' and repo_name is not None:
-                self.do_pushr(repo_name)
                 print(f'Repo Created : {repo_name}')
                 #create a local repo
                 c_path = os.path.join('src','dbctest', repo_name)
                 with open(c_path, 'w+') as f:
                     f.write('This is a dummy repo')
+                self.do_pushr(repo_name)
 
             elif status != 'OK':
                 print(f'{status}')
