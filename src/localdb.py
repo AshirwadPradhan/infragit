@@ -24,6 +24,7 @@ class IGDB(object):
             json.dump(self.db, open(self.path, 'w+'))
             return True
         except:
+            print('Unable to write to DB')
             return False
     
     def setd(self, key, value):
@@ -32,6 +33,7 @@ class IGDB(object):
             if self.writedb():
                 return True
             else:
+                print('setd failed...')
                 return False
         except Exception as e:
             print('Error Saving Data to database...'+ str(e))

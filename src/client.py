@@ -7,6 +7,9 @@ from Crypto.Random import get_random_bytes
 from Crypto.Hash import SHA512
 from Crypto.Cipher import AES
 
+certpath = os.path.join(os.getcwd(),'src','')
+# print(certpath)
+
 class IGCMD(Cmd):
 
     prompt = 'IGCMD> '
@@ -28,7 +31,7 @@ class IGCMD(Cmd):
     
     def do_test(self, inp):
         ''' Test is a test function '''
-        res = requests.get('https://localhost:5683/', verify='ca-public-key.pem')
+        res = requests.get('https://localhost:5683/', verify=certpath+'ca-public-key.pem')
         print(f'Testing {res.text}')
     
     def default(self, inp):
@@ -44,7 +47,7 @@ class IGCMD(Cmd):
             parsed_inp = inp.split()
             username = parsed_inp[0]
             password = getpass.getpass()
-            res = requests.post('https://localhost:5683/register', json={'username':username, 'password':password }, verify='ca-public-key.pem')
+            res = requests.post('https://localhost:5683/register', json={'username':username, 'password':password }, verify=certpath+'ca-public-key.pem')
             if 'OK' in res.text:
                 print(f'Registration is Succesful for the username : {username}')
             else:
@@ -60,7 +63,7 @@ class IGCMD(Cmd):
         if len(inp) > 0 and len(parsed_prompt) == 1:
             username = inp
             password = getpass.getpass()
-            res = requests.post('https://localhost:5683/login', json={'username':username, 'password':password }, verify='ca-public-key.pem')
+            res = requests.post('https://localhost:5683/login', json={'username':username, 'password':password }, verify=certpath+'ca-public-key.pem')
             if 'OK' in res.text:
                 print(f'Successfully logged in as {username}')
                 IGCMD.prompt = f'IGCMD {username}> '
@@ -80,13 +83,17 @@ class IGCMD(Cmd):
         parsed_prompt = IGCMD.prompt.split()
         if len(inp) > 0 and len(parsed_prompt) > 1:
             if inp+'>' == parsed_prompt[1]:
-                res = requests.post('https://localhost:5683/logout', json={'username':inp}, verify='ca-public-key.pem')
-                if 'OK' in res.text:
-                    print(f'Successfully logged out!')
+                try:
+                    res = requests.post('https://localhost:5683/logout', json={'username':inp}, verify=certpath+'ca-public-key.pem')
+                    if 'OK' in res.text:
+                        print(f'Successfully logged out!')
+                        IGCMD.prompt = f'IGCMD> '
+                    else:
+                        IGCMD.prompt = f'IGCMD> '
+                        print(f'ERROR : {res.text}')
+                except Exception:
                     IGCMD.prompt = f'IGCMD> '
-                else:
-                    IGCMD.prompt = f'IGCMD> '
-                    print(f'ERROR : {res.text}')
+                    print(f'***ERROR : Not a Graceful logout')
             elif len(inp) > 0:
                 print(f'*** Logout command issued for wrong user {inp}')
                 print(f'*** Current User {parsed_prompt[1]}')
@@ -109,7 +116,7 @@ class IGCMD(Cmd):
             cr_b = get_random_bytes(64)
             cr = SHA512.new(cr_b).hexdigest()
             try:
-                res = requests.post('https://localhost:5683/create_repo', json={'repo_name':inp, 'cr':cr, 'admin':admin}, verify='ca-public-key.pem')
+                res = requests.post('https://localhost:5683/create_repo', json={'repo_name':inp, 'cr':cr, 'admin':admin}, verify=certpath+'ca-public-key.pem')
             except ConnectionError:
                 print(' Connection Error: Please check validity of the repo...')
             json_data:dict = json.loads(res.text)
@@ -120,7 +127,7 @@ class IGCMD(Cmd):
             if status == 'OK' and repo_name is not None:
                 print(f'Repo Created : {repo_name}')
                 #create a local repo
-                c_path = os.path.join('dbctest', repo_name)
+                c_path = os.path.join('src','dbctest', repo_name)
                 with open(c_path, 'w+') as f:
                     f.write('This is a dummy repo')
 
@@ -144,10 +151,10 @@ class IGCMD(Cmd):
             user = str(user[:l_inp-1])
 
             #data
-            c_path = os.path.join('dbctest', inp)
+            c_path = os.path.join('src','dbctest', inp)
             try:
                 #get the session key for encryption
-                res = requests.post('https://localhost:5683/get_sk', json={'repo_name':inp, 'user':user}, verify='ca-public-key.pem')
+                res = requests.post('https://localhost:5683/get_sk', json={'repo_name':inp, 'user':user}, verify=certpath+'ca-public-key.pem')
                 sess_data = json.loads(res.text)
                 session_key = sess_data.get('session_key', None)
                 # print(session_key)
@@ -168,7 +175,7 @@ class IGCMD(Cmd):
                 enc_data = enc_data.hex()
                 
                 try:
-                    res = requests.post('https://localhost:5683/push_repo', json={'repo_name':inp, 'data':enc_data, 'user':user}, verify='ca-public-key.pem')
+                    res = requests.post('https://localhost:5683/push_repo', json={'repo_name':inp, 'data':enc_data, 'user':user}, verify=certpath+'ca-public-key.pem')
                 except ConnectionError:
                     print(' Connection Error: Please check validity of the repo...')
                 json_data:dict = json.loads(res.text)
@@ -202,7 +209,7 @@ class IGCMD(Cmd):
             
             #pull from remote repo
             try:
-                res = requests.post('https://localhost:5683/pull_repo', json={'repo_name':inp, 'user':user}, verify='ca-public-key.pem')
+                res = requests.post('https://localhost:5683/pull_repo', json={'repo_name':inp, 'user':user}, verify=certpath+'ca-public-key.pem')
                 #data
                 json_data:dict = json.loads(res.text)
                 data = json_data.get('data', None)
@@ -219,7 +226,7 @@ class IGCMD(Cmd):
                     ciphertext = enc_data[32:]
 
                     #get the session key for decryption
-                    ress = requests.post('https://localhost:5683/get_sk', json={'repo_name':inp, 'user':user}, verify='ca-public-key.pem')
+                    ress = requests.post('https://localhost:5683/get_sk', json={'repo_name':inp, 'user':user}, verify=certpath+'ca-public-key.pem')
                     sess_data = json.loads(ress.text)
                     session_key = sess_data.get('session_key', None)
 
@@ -231,7 +238,7 @@ class IGCMD(Cmd):
                             plain_data = cipher.decrypt_and_verify(ciphertext, tag)
                             #edit the repo
                             plain_data = plain_data.decode('utf-8')
-                            c_path = os.path.join('dbctest', inp)
+                            c_path = os.path.join('src','dbctest', inp)
                             try:
                                 with open(c_path, 'w+') as f:
                                     f.write(plain_data)

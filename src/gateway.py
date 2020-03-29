@@ -1,13 +1,13 @@
 # The GATEWAY for the client (entry point to the application)
 from flask import Flask, request, jsonify
-from localdb import IGDB
+from src.localdb import IGDB
 import hashlib
 import os
 from datetime import datetime
 from Crypto.Random import get_random_bytes
 from Crypto.Hash import SHA512
 import base64
-from kms import get_session_key, get_data_key
+from src.kms import get_session_key, get_data_key
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 
@@ -92,8 +92,8 @@ def resgister_client():
         hashed_username.update(username.encode('utf-8'))
         hashusr = hashed_username.hexdigest()
 
-        igdb_users = IGDB(os.path.join('dbs','users.json'))
-
+        igdb_users = IGDB(os.path.join('src','dbs','users.json'))
+        # print(os.path.join('dbs','users.json'))
         if igdb_users.getd(hashusr) is None:
 
             hashed_p = hashlib.sha256()
@@ -119,8 +119,8 @@ def login_client():
         hashed_username.update(username.encode('utf-8'))
         hashusr = hashed_username.hexdigest()
 
-        igdb_users = IGDB(os.path.join('dbs', 'users.json'))
-        igdb_logclient = IGDB(os.path.join('dbs', 'logclient.json'))
+        igdb_users = IGDB(os.path.join('src','dbs', 'users.json'))
+        igdb_logclient = IGDB(os.path.join('src','dbs', 'logclient.json'))
 
         data:dict = igdb_users.getd(hashusr)
 
@@ -168,7 +168,7 @@ def logout_client():
         hashed_username.update(username.encode('utf-8'))
         hashusr = hashed_username.hexdigest()
 
-        igdb_logclient = IGDB(os.path.join('dbs','logclient.json'))
+        igdb_logclient = IGDB(os.path.join('src','dbs','logclient.json'))
 
         #Check if the user is logged in 
         if igdb_logclient.getd(hashusr) is not None:
@@ -186,7 +186,7 @@ def create_repo():
         repo_name = request.json['repo_name']
 
         #store the session key with admin of the repo
-        igdb_repoinf = IGDB(os.path.join('dbs', 'repoinf.json'))
+        igdb_repoinf = IGDB(os.path.join('src','dbs', 'repoinf.json'))
 
         if igdb_repoinf.getd(repo_name) is None:
             client_random = request.json['cr']
@@ -200,7 +200,7 @@ def create_repo():
             print(session_key)
             
             #create the repo
-            c_path = os.path.join('dbtest', repo_name)
+            c_path = os.path.join('src','dbtest', repo_name)
             with open(c_path, 'w+') as f:
                 f.write('This is a dummy repo')
 
@@ -221,7 +221,7 @@ def push_repo():
         user = request.json['user']
 
         # push the data to the repo
-        igdb_repoinf = IGDB(os.path.join('dbs', 'repoinf.json'))
+        igdb_repoinf = IGDB(os.path.join('src','dbs', 'repoinf.json'))
 
         if igdb_repoinf.getd(repo_name) is not None:
 
@@ -252,7 +252,7 @@ def push_repo():
                         ee_plain_data = encrypt_with_dk(plain_data, key, server_random)
                         #edit the repo
                         # ee_plain_data = ee_plain_data.decode('utf-8')
-                        c_path = os.path.join('dbtest', repo_name)
+                        c_path = os.path.join('src','dbtest', repo_name)
                         with open(c_path, 'w+') as f:
                             f.write(ee_plain_data)
                         
@@ -275,7 +275,7 @@ def pull_repo():
         user = request.json['user']
 
         # pull the data to the repo
-        igdb_repoinf = IGDB(os.path.join('dbs', 'repoinf.json'))
+        igdb_repoinf = IGDB(os.path.join('src','dbs', 'repoinf.json'))
 
         if igdb_repoinf.getd(repo_name) is not None:
 
@@ -284,7 +284,7 @@ def pull_repo():
             if user in repo_users:
                 
                 #read the repo
-                c_path = os.path.join('dbtest', repo_name)
+                c_path = os.path.join('src','dbtest', repo_name)
                 with open(c_path, 'r') as f:
                     data = f.read()
                 
@@ -324,7 +324,7 @@ def get_sk():
         repo_name = request.json['repo_name']
         user = request.json['user']
 
-        igdb_repoinf = IGDB(os.path.join('dbs', 'repoinf.json'))
+        igdb_repoinf = IGDB(os.path.join('src','dbs', 'repoinf.json'))
 
         if igdb_repoinf.getd(repo_name) is not None:
 
