@@ -7,6 +7,7 @@ clean:
 	rmdir /s /q $(ROOT_D)\src\dbs
 	rmdir /s /q $(ROOT_D)\src\dbtest
 	rmdir /s /q $(ROOT_D)\src\__pycache__
+	del /q $(ROOT_D)\src\*.pem
 init:
 	mkdir $(ROOT_D)\src\dbctest
 	mkdir $(ROOT_D)\src\dbtest
@@ -18,6 +19,13 @@ run-server:
 	@echo Server is NOT supported in Windows... Use a Linux Machine!
 run-client:
 	python $(ROOT_D)\src\client.py
+ca-cert:
+	python $(ROOT_D)\src\ca_cert_gen.py
+server-cert:
+	python $(ROOT_D)\src\server_cert_gen.py
+	python $(ROOT_D)\src\csr_sign.py
+cert: ca-cert server-cert
+prepare-env: init cert
 else
 ROOT_L := $(shell pwd)
 systest:
@@ -27,6 +35,7 @@ clean:
 	rm -rf $(ROOT_L)/src/dbs
 	rm -rf $(ROOT_L)/src/dbtest
 	rm -rf $(ROOT_L)/src/__pycache__
+	rm -rf $(ROOT_L)/src/*.pem
 init:
 	mkdir $(ROOT_L)/src/dbctest
 	mkdir $(ROOT_L)/src/dbs
@@ -38,4 +47,11 @@ run-server:
 	uwsgi --master --https localhost:5683,src/server-public-key.pem,src/server-private-key.pem --wsgi-file src/gateway.py --callable app --processes 4 --threads 4
 run-client:
 	python3 $(ROOT_L)/src/client.py
+ca-cert:
+	python3 $(ROOT_L)/src/ca_cert_gen.py
+server-cert:
+	python3 $(ROOT_L)/src/server_cert_gen.py
+	python3 $(ROOT_L)/src/csr_sign.py
+cert: ca-cert server-cert
+prepare-dev: init cert
 endif

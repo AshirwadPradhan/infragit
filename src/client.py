@@ -242,7 +242,7 @@ class IGCMD(Cmd):
                             try:
                                 with open(c_path, 'w+') as f:
                                     f.write(plain_data)
-                                print(f'Successfully pulled changes to Repo : {repo_name}')
+                                print(f'Successfully pulled changes from Repo : {repo_name}')
                             except:
                                 print('*** Error writing to local repo.. Pull again from remote')
                         except ValueError:

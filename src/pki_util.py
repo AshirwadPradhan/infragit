@@ -4,6 +4,7 @@
 #           2. Generate X509 certificate for the self-signing CA (here the organization is the CA)
 #           3. Generate X509 for the server hosted by the organization
 #           4. Sign the CSR of the server
+#Inspired from RealPython blog
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization

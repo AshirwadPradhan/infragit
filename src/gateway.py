@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # The GATEWAY for the client (entry point to the application)
 from flask import Flask, request, jsonify
 from src.localdb import IGDB
