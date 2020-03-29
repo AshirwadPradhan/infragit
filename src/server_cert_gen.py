@@ -12,6 +12,6 @@ if __name__ == "__main__":
                         country='IN',
                         state='Rajasthan',
                         locality='Pilani',
-                        org='InfraGIT',
+                        org='IntraGIT',
                         alt_names=['localhost', '127.0.0.1'],
-                        hostname='infragit.com')
+                        hostname='intragit.com')
