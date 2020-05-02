@@ -1,4 +1,5 @@
 import requests
+import base64
 import json
 import os
 from cmd import Cmd
@@ -6,6 +7,7 @@ import getpass
 from Crypto.Random import get_random_bytes
 from Crypto.Hash import SHA512
 from Crypto.Cipher import AES
+from git import Repo
 
 certpath = os.path.join(os.getcwd(),'src','')
 # print(certpath)
@@ -126,10 +128,17 @@ class IGCMD(Cmd):
 
             if status == 'OK' and repo_name is not None:
                 print(f'Repo Created : {repo_name}')
+                
                 #create a local repo
                 c_path = os.path.join('src','dbctest', repo_name)
-                with open(c_path, 'w+') as f:
-                    f.write('This is a dummy repo')
+                os.mkdir(c_path)
+                c_repo = Repo.init(c_path)
+
+                with open(c_path + "/README.md", 'x') as readme: readme.write('#' + repo_name) 
+                c_repo.index.add("README.md")
+                c_repo.index.commit("Initial commit")
+                
+                with open(c_path + '.zip', 'wb') as archive_file: c_repo.archive(archive_file, format='zip')
                 self.do_pushr(repo_name)
 
             elif status != 'OK':
@@ -160,15 +169,15 @@ class IGCMD(Cmd):
                 session_key = sess_data.get('session_key', None)
                 # print(session_key)
 
-                #get unencrypted data
-                with open(c_path, 'r') as f:
+                #get unencrypted compressed data
+                with open(c_path + '.zip', 'rb') as f:
                     data = f.read()
-                
+                b64_data = base64.b64encode(data)
                 #encrypt the data 
                 key = session_key[:32].encode('utf-8')
                 
                 cipher = AES.new(key, AES.MODE_GCM)
-                ciphertext, tag = cipher.encrypt_and_digest(data.encode('utf-8'))
+                ciphertext, tag = cipher.encrypt_and_digest(b64_data)
 
                 enc_data = bytearray(cipher.nonce)
                 enc_data.extend(tag)

@@ -11,6 +11,7 @@ import base64
 from src.kms import get_session_key, get_data_key
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
+from git import Repo
 
 SECRET_MESSAGE = 'very secret'
 app = Flask(__name__)
@@ -202,8 +203,14 @@ def create_repo():
             
             #create the repo
             c_path = os.path.join('src','dbtest', repo_name)
-            with open(c_path, 'w+') as f:
-                f.write('This is a dummy repo')
+            with open(c_path, 'wb') as f: f.close()
+            # os.mkdir(c_path)
+            # c_repo = Repo.init(c_path)
+            
+            # with open(c_path + "/README.md", 'x') as readme: readme.write('#' + repo_name) 
+            # c_repo.index.add("README.md")
+            # c_repo.index.commit("Initial commit")            
+            # with open(c_path + '.zip', 'wb') as archive_file: c_repo.archive(archive_file, format='zip')
 
             data = {'admin': admin, 'session_key': session_key, 'server_random': server_random, 'users': [admin]}
             if igdb_repoinf.setd(repo_name, data):
@@ -244,17 +251,19 @@ def push_repo():
                     key = session_key[:32].encode('utf-8')
                     cipher = AES.new(key, AES.MODE_GCM, nonce)
                     try:
-                        plain_data = cipher.decrypt_and_verify(ciphertext, tag)
-                        
+                        b64_data = cipher.decrypt_and_verify(ciphertext, tag)
+                        print("*******************************************")
+                        print(b64_data)
+                        print("*******************************************")
                         #get server random
                         server_random = repo_info['server_random']
                         # envelope encryption
                         # print('start ee encr')
-                        ee_plain_data = encrypt_with_dk(plain_data, key, server_random)
+                        ee_plain_data = encrypt_with_dk(b64_data, key, server_random)
                         #edit the repo
-                        # ee_plain_data = ee_plain_data.decode('utf-8')
+                        ee_plain_data = ee_plain_data.encode('utf-8')
                         c_path = os.path.join('src','dbtest', repo_name)
-                        with open(c_path, 'w+') as f:
+                        with open(c_path, 'wb') as f:
                             f.write(ee_plain_data)
                         
                         d = {'repo_name': repo_name, 'status': 'OK'}
