@@ -4,6 +4,7 @@ import json
 import os
 from cmd import Cmd
 import getpass
+from zipfile import ZipFile
 from Crypto.Random import get_random_bytes
 from Crypto.Hash import SHA512
 from Crypto.Cipher import AES
@@ -138,7 +139,6 @@ class IGCMD(Cmd):
                 c_repo.index.add("README.md")
                 c_repo.index.commit("Initial commit")
                 
-                with open(c_path + '.zip', 'wb') as archive_file: c_repo.archive(archive_file, format='zip')
                 self.do_pushr(repo_name)
 
             elif status != 'OK':
@@ -170,8 +170,10 @@ class IGCMD(Cmd):
                 # print(session_key)
 
                 #get unencrypted compressed data
-                with open(c_path + '.zip', 'rb') as f:
-                    data = f.read()
+                with open(c_path + '.zip', 'wb') as archive_file: 
+                    c_repo.archive(archive_file, format='zip')
+                    data = archive_file.read()
+                os.delete(c_path + '.zip')
                 b64_data = base64.b64encode(data)
                 #encrypt the data 
                 key = session_key[:32].encode('utf-8')
@@ -183,7 +185,7 @@ class IGCMD(Cmd):
                 enc_data.extend(tag)
                 enc_data.extend(ciphertext)
                 enc_data = enc_data.hex()
-                
+
                 try:
                     res = requests.post('https://localhost:5683/push_repo', json={'repo_name':inp, 'data':enc_data, 'user':user}, verify=certpath+'ca-public-key.pem')
                 except ConnectionError:
@@ -245,13 +247,14 @@ class IGCMD(Cmd):
                     
                         cipher = AES.new(key, AES.MODE_GCM, nonce)
                         try:
-                            plain_data = cipher.decrypt_and_verify(ciphertext, tag)
+                            b64_data = cipher.decrypt_and_verify(ciphertext, tag)
                             #edit the repo
-                            plain_data = plain_data.decode('utf-8')
+                            plain_data = base64.b64decode(b64_data)
                             c_path = os.path.join('src','dbctest', inp)
                             try:
-                                with open(c_path, 'w+') as f:
-                                    f.write(plain_data)
+                                with open(c_path + '.zip', 'wb') as f: f.write(plain_data)
+                                with ZipFile(c_path + '.zip') as zipObj: zipObj.extractall(c_path)
+                                os.remove(c_path + '.zip')
                                 print(f'Successfully pulled changes from Repo : {repo_name}')
                             except:
                                 print('*** Error writing to local repo.. Pull again from remote')

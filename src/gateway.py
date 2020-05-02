@@ -295,7 +295,7 @@ def pull_repo():
                 
                 #read the repo
                 c_path = os.path.join('src','dbtest', repo_name)
-                with open(c_path, 'r') as f:
+                with open(c_path, 'rb') as f:
                     data = f.read()
                 
                 #get session key
@@ -307,7 +307,7 @@ def pull_repo():
                     key = session_key[:32].encode('utf-8')
 
                     # envelope decryption
-                    data = decrypt_with_dk(data, key, server_random)
+                    data = decrypt_with_dk(data.decode('utf-8'), key, server_random)
                     
                     #start the encryption process
                     cipher = AES.new(key, AES.MODE_GCM)
