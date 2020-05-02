@@ -198,7 +198,7 @@ def create_repo():
 
             #get the session key of the repo
             session_key = get_session_key(client_random, server_random)
-            print(session_key)
+            # print(session_key)
             
             #create the repo
             c_path = os.path.join('src','dbtest', repo_name)
@@ -212,6 +212,94 @@ def create_repo():
                 d = {'status': f'ERROR: Error in creating {repo_name} in the repository'}
         else:
             d = {'status': f'ERROR: {repo_name} already present'}
+        
+        return jsonify(d)
+
+@app.route('/add_user', methods=['POST'])
+def add_user():
+    if request.method == 'POST':
+        repo_name = request.json['repo_name']
+
+        #store the session key with admin of the repo
+        igdb_repoinf = IGDB(os.path.join('src','dbs', 'repoinf.json'))
+
+        if igdb_repoinf.getd(repo_name) is not None:
+            user = request.json['user']
+            admin = request.json['admin']
+            
+            # data = {'admin': admin, 'session_key': session_key, 'server_random': server_random, 'users': [admin]}
+            # if igdb_repoinf.setd(repo_name, data):
+            #     d = {'repo_name': repo_name, 'status': 'OK'}
+            # else:
+            #     d = {'status': f'ERROR: Error in creating {repo_name} in the repository'}
+            repo_info = igdb_repoinf.getd(repo_name)
+            repo_users = repo_info['users']
+            reg_admin = repo_info['admin']
+            sess_key = repo_info['session_key']
+            ser_rand = repo_info['server_random']
+
+            if reg_admin == admin:
+                if repo_users is not None:
+                    if user not in repo_users:
+                        repo_users.append(user)
+                        data = {'admin': reg_admin, 'session_key': sess_key, 'server_random': ser_rand, 'users': repo_users}
+                        if igdb_repoinf.setd(repo_name, data):
+                            d = {'user': user, 'status': 'OK'}
+                        else:
+                            d = {'status': f'ERROR: Error in adding {user} to auth user list: Try Again'}
+                    else:
+                        d = {'status': f'ERROR: Error in adding {user} to auth user list: User Already in Auth User'}
+
+                else:
+                    d = {'status': f'ERROR: Server Error:: None User Value !!!'}
+            else:
+                d = {'status': f'ERROR: {admin} is not authorized to add auth users'} 
+        else:
+            d = {'status': f'ERROR: {repo_name} not present: Please create it and then add auth user'}
+        
+        return jsonify(d)
+
+@app.route('/rem_user', methods=['POST'])
+def rem_user():
+    if request.method == 'POST':
+        repo_name = request.json['repo_name']
+
+        #store the session key with admin of the repo
+        igdb_repoinf = IGDB(os.path.join('src','dbs', 'repoinf.json'))
+
+        if igdb_repoinf.getd(repo_name) is not None:
+            user = request.json['user']
+            admin = request.json['admin']
+            
+            # data = {'admin': admin, 'session_key': session_key, 'server_random': server_random, 'users': [admin]}
+            # if igdb_repoinf.setd(repo_name, data):
+            #     d = {'repo_name': repo_name, 'status': 'OK'}
+            # else:
+            #     d = {'status': f'ERROR: Error in creating {repo_name} in the repository'}
+            repo_info = igdb_repoinf.getd(repo_name)
+            repo_users = repo_info['users']
+            reg_admin = repo_info['admin']
+            sess_key = repo_info['session_key']
+            ser_rand = repo_info['server_random']
+
+            if reg_admin == admin:
+                if repo_users is not None:
+                    if user in repo_users:
+                        repo_users.append(user)
+                        data = {'admin': reg_admin, 'session_key': sess_key, 'server_random': ser_rand, 'users': repo_users}
+                        if igdb_repoinf.setd(repo_name, data):
+                            d = {'user': user, 'status': 'OK'}
+                        else:
+                            d = {'status': f'ERROR: Error in removing {user} to auth user: Try Again'}
+                    else:
+                        d = {'status': f'ERROR: Error in removing {user} to auth user list: User Not present in Auth User'}
+
+                else:
+                    d = {'status': f'ERROR: Server Error:: None User Value !!!'}
+            else:
+                d = {'status': f'ERROR: {admin} is not authorized to remove auth users'} 
+        else:
+            d = {'status': f'ERROR: {repo_name} not present'}
         
         return jsonify(d)
 

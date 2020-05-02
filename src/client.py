@@ -57,6 +57,42 @@ class IGCMD(Cmd):
         else:
             print('*** Too Less Arguments: register')
     
+    def do_adduser(self, inp:str):
+        '''    Add an user to the list of auth users for a repo. \n    Usage: adduser <username>,<repo_name> \n
+        This can only be used by the admin of the repo.
+        '''
+        parsed_prompt = IGCMD.prompt.split()
+        if len(inp) > 0 and len(parsed_prompt) > 1:
+
+            #admin
+            admin = parsed_prompt[1]
+            l_inp = len(admin)
+            admin = str(admin[:l_inp-1])
+
+            user, repo_name = inp.split(',')
+
+            try:
+                res = requests.post('https://localhost:5683/add_user', json={'repo_name':repo_name.strip(), 'user':user.strip(), 'admin':admin}, verify=certpath+'ca-public-key.pem')
+            except ConnectionError:
+                print(' Connection Error: Please check validity of the repo...')
+            json_data:dict = json.loads(res.text)
+            # print(json_data)
+            user = json_data.get('user', None)
+            status = json_data.get('status', None)
+
+            if status == 'OK' and repo_name is not None:
+                print(f'User Added : {user}')
+            elif status != 'OK':
+                print(f'{status}')
+            else:
+                print(f'{res.text}')
+
+        elif len(inp) > 0 and len(parsed_prompt) == 1:
+            print('*** Login to add a user')
+        else:
+            print('*** Too Less Arguments')
+    
+    
     def do_login(self, inp:str):
         '''    Login to the IntraGIT service. \n    Usage: login <username>'''
         parsed_prompt = IGCMD.prompt.split()
