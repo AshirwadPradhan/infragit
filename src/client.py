@@ -91,7 +91,46 @@ class IGCMD(Cmd):
             print('*** Login to add a user')
         else:
             print('*** Too Less Arguments')
-    
+
+    def do_remuser(self, inp:str):
+        '''    Add an user to the list of auth users for a repo. \n    Usage: adduser <username>,<repo_name> \n
+        This can only be used by the admin of the repo.
+        '''
+        parsed_prompt = IGCMD.prompt.split()
+        if len(inp) > 0 and len(parsed_prompt) > 1:
+
+            #admin
+            admin = parsed_prompt[1]
+            l_inp = len(admin)
+            admin = str(admin[:l_inp-1])
+
+            user, repo_name = inp.split(',')
+
+            #create client random
+            cr_b = get_random_bytes(64)
+            cr = SHA512.new(cr_b).hexdigest()
+
+            try:
+                res = requests.post('https://localhost:5683/rem_user', json={'repo_name':repo_name.strip(), 'user':user.strip(), 'admin':admin, 'cr':cr}, verify=certpath+'ca-public-key.pem')
+            except ConnectionError:
+                print(' Connection Error: Please check validity of the repo...')
+            json_data:dict = json.loads(res.text)
+            # print(json_data)
+            user = json_data.get('user', None)
+            status = json_data.get('status', None)
+
+            if status == 'OK' and repo_name is not None:
+                print(f'User Removed : {user}')
+            elif status != 'OK':
+                print(f'{status}')
+            else:
+                print(f'{res.text}')
+
+        elif len(inp) > 0 and len(parsed_prompt) == 1:
+            print('*** Login to add a user')
+        else:
+            print('*** Too Less Arguments')
+        
     
     def do_login(self, inp:str):
         '''    Login to the IntraGIT service. \n    Usage: login <username>'''
@@ -195,37 +234,39 @@ class IGCMD(Cmd):
                 sess_data = json.loads(res.text)
                 session_key = sess_data.get('session_key', None)
                 # print(session_key)
+                if (session_key != ''):
+                    #get unencrypted data
+                    with open(c_path, 'r') as f:
+                        data = f.read()
+                    
+                    #encrypt the data 
+                    key = session_key[:32].encode('utf-8')
+                    
+                    cipher = AES.new(key, AES.MODE_GCM)
+                    ciphertext, tag = cipher.encrypt_and_digest(data.encode('utf-8'))
 
-                #get unencrypted data
-                with open(c_path, 'r') as f:
-                    data = f.read()
-                
-                #encrypt the data 
-                key = session_key[:32].encode('utf-8')
-                
-                cipher = AES.new(key, AES.MODE_GCM)
-                ciphertext, tag = cipher.encrypt_and_digest(data.encode('utf-8'))
+                    enc_data = bytearray(cipher.nonce)
+                    enc_data.extend(tag)
+                    enc_data.extend(ciphertext)
+                    enc_data = enc_data.hex()
+                    
+                    try:
+                        res = requests.post('https://localhost:5683/push_repo', json={'repo_name':inp, 'data':enc_data, 'user':user}, verify=certpath+'ca-public-key.pem')
+                    except ConnectionError:
+                        print(' Connection Error: Please check validity of the repo...')
+                    json_data:dict = json.loads(res.text)
+                    # print(json_data)
+                    repo_name = json_data.get('repo_name', None)
+                    status = json_data.get('status', None)
 
-                enc_data = bytearray(cipher.nonce)
-                enc_data.extend(tag)
-                enc_data.extend(ciphertext)
-                enc_data = enc_data.hex()
-                
-                try:
-                    res = requests.post('https://localhost:5683/push_repo', json={'repo_name':inp, 'data':enc_data, 'user':user}, verify=certpath+'ca-public-key.pem')
-                except ConnectionError:
-                    print(' Connection Error: Please check validity of the repo...')
-                json_data:dict = json.loads(res.text)
-                # print(json_data)
-                repo_name = json_data.get('repo_name', None)
-                status = json_data.get('status', None)
-
-                if status == 'OK' and repo_name is not None:
-                    print(f'Successfully pushed changes to Repo : {repo_name}')
-                elif status != 'OK':
-                    print(f'{status}')
+                    if status == 'OK' and repo_name is not None:
+                        print(f'Successfully pushed changes to Repo : {repo_name}')
+                    elif status != 'OK':
+                        print(f'{status}')
+                    else:
+                        print(f'{res.text}')
                 else:
-                    print(f'{res.text}')
+                    print('Unauthorized Access!: Not Allowed')
             except FileNotFoundError:
                 print(f'*** The repo {inp} is not present locally')
         elif len(inp) > 0 and len(parsed_prompt) == 1:
@@ -267,7 +308,7 @@ class IGCMD(Cmd):
                     sess_data = json.loads(ress.text)
                     session_key = sess_data.get('session_key', None)
 
-                    if session_key is not None:
+                    if session_key != '':
                         key = session_key[:32].encode('utf-8')
                     
                         cipher = AES.new(key, AES.MODE_GCM, nonce)
@@ -285,7 +326,7 @@ class IGCMD(Cmd):
                         except ValueError:
                             print('*** Tampered Data')
                     else:
-                        print('*** Unable to get session key')
+                        print('*** Unauthorized Access!: Not Allowed')
                 elif status == 'OK' and data is None:
                     print('*** No data received')
                 elif status != 'OK':
