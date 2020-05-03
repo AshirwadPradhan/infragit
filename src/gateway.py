@@ -199,7 +199,7 @@ def create_repo():
 
             #get the session key of the repo
             session_key = get_session_key(client_random, server_random)
-            print(session_key)
+            # print(session_key)
             
             #create the repo
             c_path = os.path.join('src','dbtest', repo_name)
@@ -219,6 +219,141 @@ def create_repo():
                 d = {'status': f'ERROR: Error in creating {repo_name} in the repository'}
         else:
             d = {'status': f'ERROR: {repo_name} already present'}
+        
+        return jsonify(d)
+
+@app.route('/add_user', methods=['POST'])
+def add_user():
+    if request.method == 'POST':
+        repo_name = request.json['repo_name']
+
+        #store the session key with admin of the repo
+        igdb_repoinf = IGDB(os.path.join('src','dbs', 'repoinf.json'))
+
+        if igdb_repoinf.getd(repo_name) is not None:
+            user = request.json['user']
+            admin = request.json['admin']
+            
+            # data = {'admin': admin, 'session_key': session_key, 'server_random': server_random, 'users': [admin]}
+            # if igdb_repoinf.setd(repo_name, data):
+            #     d = {'repo_name': repo_name, 'status': 'OK'}
+            # else:
+            #     d = {'status': f'ERROR: Error in creating {repo_name} in the repository'}
+            repo_info = igdb_repoinf.getd(repo_name)
+            repo_users = repo_info['users']
+            reg_admin = repo_info['admin']
+            sess_key = repo_info['session_key']
+            ser_rand = repo_info['server_random']
+
+            if reg_admin == admin:
+                if repo_users is not None:
+                    if user not in repo_users:
+                        repo_users.append(user)
+                        data = {'admin': reg_admin, 'session_key': sess_key, 'server_random': ser_rand, 'users': repo_users}
+                        if igdb_repoinf.setd(repo_name, data):
+                            d = {'user': user, 'status': 'OK'}
+                        else:
+                            d = {'status': f'ERROR: Error in adding {user} to auth user list: Try Again'}
+                    else:
+                        d = {'status': f'ERROR: Error in adding {user} to auth user list: User Already in Auth User'}
+
+                else:
+                    d = {'status': f'ERROR: Server Error:: None User Value !!!'}
+            else:
+                d = {'status': f'ERROR: {admin} is not authorized to add auth users'} 
+        else:
+            d = {'status': f'ERROR: {repo_name} not present: Please create it and then add auth user'}
+        
+        return jsonify(d)
+
+@app.route('/rem_user', methods=['POST'])
+def rem_user():
+    if request.method == 'POST':
+        repo_name = request.json['repo_name']
+
+        #store the session key with admin of the repo
+        igdb_repoinf = IGDB(os.path.join('src','dbs', 'repoinf.json'))
+        e=''
+        if igdb_repoinf.getd(repo_name) is not None:
+            user = request.json['user']
+            admin = request.json['admin']
+            client_random = request.json['cr']
+            
+            # data = {'admin': admin, 'session_key': session_key, 'server_random': server_random, 'users': [admin]}
+            # if igdb_repoinf.setd(repo_name, data):
+            #     d = {'repo_name': repo_name, 'status': 'OK'}
+            # else:
+            #     d = {'status': f'ERROR: Error in creating {repo_name} in the repository'}
+            repo_info = igdb_repoinf.getd(repo_name)
+            repo_users = repo_info['users']
+            reg_admin = repo_info['admin']
+            sess_key = repo_info['session_key']
+            ser_rand = repo_info['server_random']
+
+            if reg_admin == admin:
+                if repo_users is not None:
+                    if user in repo_users:
+                        #remove the user
+                        repo_users.remove(user)
+                        
+                        #create new server random 
+                        sr_b = get_random_bytes(64)
+                        new_server_random = SHA512.new(sr_b).hexdigest()
+
+                        #get the new session key of the repo
+                        new_session_key = get_session_key(client_random, new_server_random)
+                        db_data = {'admin': reg_admin, 'session_key': new_session_key, 'server_random': new_server_random, 'users': repo_users}
+
+                        #read the repo info
+                        c_path = os.path.join('src','dbtest', repo_name)
+                        with open(c_path, 'r') as f:
+                            data = f.read()
+
+                        #decrypt the repo with old session key
+                        if sess_key is not None:
+                            key = sess_key[:32].encode('utf-8')
+
+                            # envelope decryption
+                            data = decrypt_with_dk(data, key, ser_rand)
+                            print(data)
+                            #encrypt the repo with new session key
+                            flag:bool = False
+                            if new_session_key is not None:
+                                key = new_session_key[:32].encode('utf-8')
+                                try:
+                                    plain_data = data.encode('utf-8')
+                                    
+                                    #get server random
+                                    server_random = new_server_random
+                                    # envelope encryption
+                                    ee_plain_data = encrypt_with_dk(plain_data, key, server_random)
+                                    #edit the repo
+                                    # ee_plain_data = ee_plain_data.decode('utf-8')
+                                    c_path = os.path.join('src','dbtest', repo_name)
+                                    with open(c_path, 'w+') as f:
+                                        f.write(ee_plain_data)
+                                    
+                                    flag = True
+                                except ValueError:
+                                    e = ' :Decryption Issue with Data Key'
+                            else:
+                                e = ' :Unable to get new session key.. Please check validity of the repo'
+                        else:
+                            e = ' :Unable to get old session key.. Please check validity of the repo'
+
+                        if igdb_repoinf.setd(repo_name, db_data) and flag:
+                            d = {'user': user, 'status': 'OK'}
+                        else:
+                            d = {'status': f'ERROR: Error in removing {user} to auth user: Try Again'+e}
+                    else:
+                        d = {'status': f'ERROR: Error in removing {user} to auth user list: User Not present in Auth User'+e}
+
+                else:
+                    d = {'status': f'ERROR: Server Error:: None User Value !!!'+e}
+            else:
+                d = {'status': f'ERROR: {admin} is not authorized to remove auth users'+e} 
+        else:
+            d = {'status': f'ERROR: {repo_name} not present'+e}
         
         return jsonify(d)
 
@@ -347,5 +482,5 @@ def get_sk():
 
                 return jsonify(d)
 
-        return None
+        return jsonify({'session_key': ''})
             
