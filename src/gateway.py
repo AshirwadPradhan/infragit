@@ -314,8 +314,7 @@ def rem_user():
                             key = sess_key[:32].encode('utf-8')
 
                             # envelope decryption
-                            data = decrypt_with_dk(data, key, ser_rand)
-                            print(data)
+                            data = decrypt_with_dk(data.decode('utf-8'), key, ser_rand)
                             #encrypt the repo with new session key
                             flag:bool = False
                             if new_session_key is not None:
