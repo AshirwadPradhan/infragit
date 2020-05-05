@@ -50,18 +50,14 @@ def encrypt_with_dk(data, root_key, server_random):
 
 def decrypt_with_dk(data, root_key, server_random):
     ''' Perform envelope decryption'''
-    print("*************** decrypt_with_dk call *******************************")
+
     #get the binary data in required format
     #extract all the info back as maintained in the structure
     data = bytes.fromhex(data)
-    print("data = ")
-    print(data)
     ct_iv = data[:16]
     k_iv = data[16:32]
     encKey = data[32:80]
     ciphertext = data[80:]
-    print("ciphertext = ")
-    print(ciphertext)
 
     # decipher the data key
     cp = AES.new(root_key, AES.MODE_CBC, k_iv)
@@ -70,9 +66,7 @@ def decrypt_with_dk(data, root_key, server_random):
     # decipher the ciphertext using the data key
     cipher = AES.new(data_key, AES.MODE_CBC, ct_iv)
     plain_text = unpad(cipher.decrypt(ciphertext), AES.block_size)
-    print ('plain_text = ')
-    print (plain_text)
-    print("*************** decrypt_with_dk return *******************************")
+
     # print(plain_text.decode('utf-8'))
     return plain_text.decode('utf-8')
 
@@ -209,7 +203,7 @@ def create_repo():
             
             #create the repo
             c_path = os.path.join('src','dbtest', repo_name)
-            with open(c_path, 'wb') as f: f.close()
+            with open(c_path, 'wb+') as f: f.close()
             # os.mkdir(c_path)
             # c_repo = Repo.init(c_path)
             
@@ -398,13 +392,10 @@ def push_repo():
                         # envelope encryption
                         # print('start ee encr')
                         ee_plain_data = encrypt_with_dk(b64_data, key, server_random)
-                        print(ee_plain_data)
                         #edit the repo
                         ee_plain_data = ee_plain_data.encode('utf-8')
-                        print(ee_plain_data)
                         c_path = os.path.join('src','dbtest', repo_name)
-                        with open(c_path, 'wb') as f:
-                            f.write(ee_plain_data)
+                        with open(c_path, 'wb+') as f: f.write(ee_plain_data)
                         
                         d = {'repo_name': repo_name, 'status': 'OK'}
                     except ValueError:
@@ -446,7 +437,6 @@ def pull_repo():
                     key = session_key[:32].encode('utf-8')
 
                     # envelope decryption
-                    print(data.decode('utf-8'))
                     data = decrypt_with_dk(data.decode('utf-8'), key, server_random)
                     #start the encryption process
                     cipher = AES.new(key, AES.MODE_GCM)

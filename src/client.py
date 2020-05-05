@@ -249,6 +249,7 @@ class IGCMD(Cmd):
                     #get unencrypted compressed data
                     with open(c_path + '.zip', 'wb+') as archive_file: 
                         c_repo.archive(archive_file, format='zip')
+                    with open(c_path + '.zip', 'rb') as archive_file:
                         data = archive_file.read()
                     os.remove(c_path + '.zip')
 
@@ -258,7 +259,6 @@ class IGCMD(Cmd):
                     b64_data = base64.b64encode(data)
                     cipher = AES.new(key, AES.MODE_GCM)
                     ciphertext, tag = cipher.encrypt_and_digest(b64_data)
-
                     enc_data = bytearray(cipher.nonce)
                     enc_data.extend(tag)
                     enc_data.extend(ciphertext)
@@ -328,15 +328,14 @@ class IGCMD(Cmd):
                         try:
                             b64_data = cipher.decrypt_and_verify(ciphertext, tag)
                             #edit the repo
-                            print(b64_data)
                             plain_data = base64.b64decode(b64_data)
                             c_path = os.path.join('src','dbctest', inp)
                             try:
                                 with open(c_path + '.zip', 'wb+') as f:
                                     f.write(plain_data)
-                                # with ZipFile(c_path + '.zip') as zipObj:
-                                    # zipObj.extractall(c_path)
-                                # os.remove(c_path + '.zip')
+                                with ZipFile(c_path + '.zip') as zipObj:
+                                    zipObj.extractall(c_path)
+                                os.remove(c_path + '.zip')
                                 print(f'Successfully pulled changes from Repo : {repo_name}')
                             except:
                                 print('*** Error writing to local repo.. Pull again from remote')
