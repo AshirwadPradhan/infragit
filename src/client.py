@@ -247,10 +247,10 @@ class IGCMD(Cmd):
                 # print(session_key)
                 if (session_key != ''):
                     #get unencrypted compressed data
-                    with open(c_path + '.zip', 'wb') as archive_file: 
+                    with open(c_path + '.zip', 'wb+') as archive_file: 
                         c_repo.archive(archive_file, format='zip')
                         data = archive_file.read()
-                    os.delete(c_path + '.zip')
+                    os.remove(c_path + '.zip')
 
                     #encrypt the data 
                     key = session_key[:32].encode('utf-8')
@@ -316,7 +316,6 @@ class IGCMD(Cmd):
                     nonce = enc_data[:16]
                     tag = enc_data[16:32]
                     ciphertext = enc_data[32:]
-
                     #get the session key for decryption
                     ress = requests.post('https://localhost:5683/get_sk', json={'repo_name':inp, 'user':user}, verify=certpath+'ca-public-key.pem')
                     sess_data = json.loads(ress.text)
@@ -329,12 +328,15 @@ class IGCMD(Cmd):
                         try:
                             b64_data = cipher.decrypt_and_verify(ciphertext, tag)
                             #edit the repo
+                            print(b64_data)
                             plain_data = base64.b64decode(b64_data)
                             c_path = os.path.join('src','dbctest', inp)
                             try:
-                                with open(c_path + '.zip', 'wb') as f: f.write(plain_data)
-                                with ZipFile(c_path + '.zip') as zipObj: zipObj.extractall(c_path)
-                                os.remove(c_path + '.zip')
+                                with open(c_path + '.zip', 'wb+') as f:
+                                    f.write(plain_data)
+                                # with ZipFile(c_path + '.zip') as zipObj:
+                                    # zipObj.extractall(c_path)
+                                # os.remove(c_path + '.zip')
                                 print(f'Successfully pulled changes from Repo : {repo_name}')
                             except:
                                 print('*** Error writing to local repo.. Pull again from remote')

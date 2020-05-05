@@ -50,14 +50,18 @@ def encrypt_with_dk(data, root_key, server_random):
 
 def decrypt_with_dk(data, root_key, server_random):
     ''' Perform envelope decryption'''
-
+    print("*************** decrypt_with_dk call *******************************")
     #get the binary data in required format
     #extract all the info back as maintained in the structure
     data = bytes.fromhex(data)
+    print("data = ")
+    print(data)
     ct_iv = data[:16]
     k_iv = data[16:32]
     encKey = data[32:80]
     ciphertext = data[80:]
+    print("ciphertext = ")
+    print(ciphertext)
 
     # decipher the data key
     cp = AES.new(root_key, AES.MODE_CBC, k_iv)
@@ -66,7 +70,9 @@ def decrypt_with_dk(data, root_key, server_random):
     # decipher the ciphertext using the data key
     cipher = AES.new(data_key, AES.MODE_CBC, ct_iv)
     plain_text = unpad(cipher.decrypt(ciphertext), AES.block_size)
-
+    print ('plain_text = ')
+    print (plain_text)
+    print("*************** decrypt_with_dk return *******************************")
     # print(plain_text.decode('utf-8'))
     return plain_text.decode('utf-8')
 
@@ -306,7 +312,7 @@ def rem_user():
 
                         #read the repo info
                         c_path = os.path.join('src','dbtest', repo_name)
-                        with open(c_path, 'r') as f:
+                        with open(c_path, 'rb') as f:
                             data = f.read()
 
                         #decrypt the repo with old session key
@@ -328,9 +334,9 @@ def rem_user():
                                     # envelope encryption
                                     ee_plain_data = encrypt_with_dk(plain_data, key, server_random)
                                     #edit the repo
-                                    # ee_plain_data = ee_plain_data.decode('utf-8')
+                                    ee_plain_data = ee_plain_data.encode('utf-8')
                                     c_path = os.path.join('src','dbtest', repo_name)
-                                    with open(c_path, 'w+') as f:
+                                    with open(c_path, 'wb+') as f:
                                         f.write(ee_plain_data)
                                     
                                     flag = True
@@ -387,16 +393,15 @@ def push_repo():
                     cipher = AES.new(key, AES.MODE_GCM, nonce)
                     try:
                         b64_data = cipher.decrypt_and_verify(ciphertext, tag)
-                        print("*******************************************")
-                        print(b64_data)
-                        print("*******************************************")
                         #get server random
                         server_random = repo_info['server_random']
                         # envelope encryption
                         # print('start ee encr')
                         ee_plain_data = encrypt_with_dk(b64_data, key, server_random)
+                        print(ee_plain_data)
                         #edit the repo
                         ee_plain_data = ee_plain_data.encode('utf-8')
+                        print(ee_plain_data)
                         c_path = os.path.join('src','dbtest', repo_name)
                         with open(c_path, 'wb') as f:
                             f.write(ee_plain_data)
@@ -432,7 +437,6 @@ def pull_repo():
                 c_path = os.path.join('src','dbtest', repo_name)
                 with open(c_path, 'rb') as f:
                     data = f.read()
-                
                 #get session key
                 session_key = repo_info['session_key']
                 #get server random
@@ -442,12 +446,11 @@ def pull_repo():
                     key = session_key[:32].encode('utf-8')
 
                     # envelope decryption
+                    print(data.decode('utf-8'))
                     data = decrypt_with_dk(data.decode('utf-8'), key, server_random)
-                    
                     #start the encryption process
                     cipher = AES.new(key, AES.MODE_GCM)
                     ciphertext, tag = cipher.encrypt_and_digest(data.encode('utf-8'))
-
                     enc_data = bytearray(cipher.nonce)
                     enc_data.extend(tag)
                     enc_data.extend(ciphertext)
