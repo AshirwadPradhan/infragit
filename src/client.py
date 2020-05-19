@@ -1,11 +1,14 @@
 import requests
+import base64
 import json
 import os
 from cmd import Cmd
 import getpass
+from zipfile import ZipFile
 from Crypto.Random import get_random_bytes
 from Crypto.Hash import SHA512
 from Crypto.Cipher import AES
+from git import Repo
 
 certpath = os.path.join(os.getcwd(),'src','')
 # print(certpath)
@@ -201,10 +204,16 @@ class IGCMD(Cmd):
 
             if status == 'OK' and repo_name is not None:
                 print(f'Repo Created : {repo_name}')
+                
                 #create a local repo
                 c_path = os.path.join('src','dbctest', repo_name)
-                with open(c_path, 'w+') as f:
-                    f.write('This is a dummy repo')
+                os.mkdir(c_path)
+                c_repo = Repo.init(c_path)
+
+                with open(c_path + "/README.md", 'x') as readme: readme.write('#' + repo_name) 
+                c_repo.index.add("README.md")
+                c_repo.index.commit("Initial commit")
+                
                 self.do_pushr(repo_name)
 
             elif status != 'OK':
@@ -228,6 +237,8 @@ class IGCMD(Cmd):
 
             #data
             c_path = os.path.join('src','dbctest', inp)
+            c_repo = Repo(c_path)
+            
             try:
                 #get the session key for encryption
                 res = requests.post('https://localhost:5683/get_sk', json={'repo_name':inp, 'user':user}, verify=certpath+'ca-public-key.pem')
@@ -235,21 +246,24 @@ class IGCMD(Cmd):
                 session_key = sess_data.get('session_key', None)
                 # print(session_key)
                 if (session_key != ''):
-                    #get unencrypted data
-                    with open(c_path, 'r') as f:
-                        data = f.read()
-                    
+                    #get unencrypted compressed data
+                    with open(c_path + '.zip', 'wb+') as archive_file: 
+                        c_repo.archive(archive_file, format='zip')
+                    with open(c_path + '.zip', 'rb') as archive_file:
+                        data = archive_file.read()
+                    os.remove(c_path + '.zip')
+
                     #encrypt the data 
                     key = session_key[:32].encode('utf-8')
                     
+                    b64_data = base64.b64encode(data)
                     cipher = AES.new(key, AES.MODE_GCM)
-                    ciphertext, tag = cipher.encrypt_and_digest(data.encode('utf-8'))
-
+                    ciphertext, tag = cipher.encrypt_and_digest(b64_data)
                     enc_data = bytearray(cipher.nonce)
                     enc_data.extend(tag)
                     enc_data.extend(ciphertext)
                     enc_data = enc_data.hex()
-                    
+
                     try:
                         res = requests.post('https://localhost:5683/push_repo', json={'repo_name':inp, 'data':enc_data, 'user':user}, verify=certpath+'ca-public-key.pem')
                     except ConnectionError:
@@ -302,7 +316,6 @@ class IGCMD(Cmd):
                     nonce = enc_data[:16]
                     tag = enc_data[16:32]
                     ciphertext = enc_data[32:]
-
                     #get the session key for decryption
                     ress = requests.post('https://localhost:5683/get_sk', json={'repo_name':inp, 'user':user}, verify=certpath+'ca-public-key.pem')
                     sess_data = json.loads(ress.text)
@@ -313,13 +326,16 @@ class IGCMD(Cmd):
                     
                         cipher = AES.new(key, AES.MODE_GCM, nonce)
                         try:
-                            plain_data = cipher.decrypt_and_verify(ciphertext, tag)
+                            b64_data = cipher.decrypt_and_verify(ciphertext, tag)
                             #edit the repo
-                            plain_data = plain_data.decode('utf-8')
+                            plain_data = base64.b64decode(b64_data)
                             c_path = os.path.join('src','dbctest', inp)
                             try:
-                                with open(c_path, 'w+') as f:
+                                with open(c_path + '.zip', 'wb+') as f:
                                     f.write(plain_data)
+                                with ZipFile(c_path + '.zip') as zipObj:
+                                    zipObj.extractall(c_path)
+                                os.remove(c_path + '.zip')
                                 print(f'Successfully pulled changes from Repo : {repo_name}')
                             except:
                                 print('*** Error writing to local repo.. Pull again from remote')

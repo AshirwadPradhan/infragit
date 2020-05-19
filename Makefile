@@ -49,10 +49,7 @@ init:
 install:
 	pip3 install -r requirements.txt
 ifeq ($(UNAME_S),Darwin)
-	CFLAGS="-I/usr/local/opt/openssl/include"
-	LDFLAGS="-L/usr/local/opt/openssl/lib"
-	UWSGI_PROFILE_OVERRIDE=ssl=true
-	pip3 install uwsgi --no-binary :all:
+	CFLAGS="-I/usr/local/opt/openssl/include" LDFLAGS="-L/usr/local/opt/openssl/lib" UWSGI_PROFILE_OVERRIDE=ssl=true pip --no-cache-dir install uwsgi -Iv
 else
 	pip3 install uwsgi
 endif

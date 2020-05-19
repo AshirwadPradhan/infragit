@@ -11,6 +11,7 @@ import base64
 from src.kms import get_session_key, get_data_key
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
+from git import Repo
 
 SECRET_MESSAGE = 'very secret'
 app = Flask(__name__)
@@ -202,8 +203,14 @@ def create_repo():
             
             #create the repo
             c_path = os.path.join('src','dbtest', repo_name)
-            with open(c_path, 'w+') as f:
-                f.write('This is a dummy repo')
+            with open(c_path, 'wb+') as f: f.close()
+            # os.mkdir(c_path)
+            # c_repo = Repo.init(c_path)
+            
+            # with open(c_path + "/README.md", 'x') as readme: readme.write('#' + repo_name) 
+            # c_repo.index.add("README.md")
+            # c_repo.index.commit("Initial commit")            
+            # with open(c_path + '.zip', 'wb') as archive_file: c_repo.archive(archive_file, format='zip')
 
             data = {'admin': admin, 'session_key': session_key, 'server_random': server_random, 'users': [admin]}
             if igdb_repoinf.setd(repo_name, data):
@@ -299,7 +306,7 @@ def rem_user():
 
                         #read the repo info
                         c_path = os.path.join('src','dbtest', repo_name)
-                        with open(c_path, 'r') as f:
+                        with open(c_path, 'rb') as f:
                             data = f.read()
 
                         #decrypt the repo with old session key
@@ -307,8 +314,7 @@ def rem_user():
                             key = sess_key[:32].encode('utf-8')
 
                             # envelope decryption
-                            data = decrypt_with_dk(data, key, ser_rand)
-                            print(data)
+                            data = decrypt_with_dk(data.decode('utf-8'), key, ser_rand)
                             #encrypt the repo with new session key
                             flag:bool = False
                             if new_session_key is not None:
@@ -321,9 +327,9 @@ def rem_user():
                                     # envelope encryption
                                     ee_plain_data = encrypt_with_dk(plain_data, key, server_random)
                                     #edit the repo
-                                    # ee_plain_data = ee_plain_data.decode('utf-8')
+                                    ee_plain_data = ee_plain_data.encode('utf-8')
                                     c_path = os.path.join('src','dbtest', repo_name)
-                                    with open(c_path, 'w+') as f:
+                                    with open(c_path, 'wb+') as f:
                                         f.write(ee_plain_data)
                                     
                                     flag = True
@@ -379,18 +385,16 @@ def push_repo():
                     key = session_key[:32].encode('utf-8')
                     cipher = AES.new(key, AES.MODE_GCM, nonce)
                     try:
-                        plain_data = cipher.decrypt_and_verify(ciphertext, tag)
-                        
+                        b64_data = cipher.decrypt_and_verify(ciphertext, tag)
                         #get server random
                         server_random = repo_info['server_random']
                         # envelope encryption
                         # print('start ee encr')
-                        ee_plain_data = encrypt_with_dk(plain_data, key, server_random)
+                        ee_plain_data = encrypt_with_dk(b64_data, key, server_random)
                         #edit the repo
-                        # ee_plain_data = ee_plain_data.decode('utf-8')
+                        ee_plain_data = ee_plain_data.encode('utf-8')
                         c_path = os.path.join('src','dbtest', repo_name)
-                        with open(c_path, 'w+') as f:
-                            f.write(ee_plain_data)
+                        with open(c_path, 'wb+') as f: f.write(ee_plain_data)
                         
                         d = {'repo_name': repo_name, 'status': 'OK'}
                     except ValueError:
@@ -421,9 +425,8 @@ def pull_repo():
                 
                 #read the repo
                 c_path = os.path.join('src','dbtest', repo_name)
-                with open(c_path, 'r') as f:
+                with open(c_path, 'rb') as f:
                     data = f.read()
-                
                 #get session key
                 session_key = repo_info['session_key']
                 #get server random
@@ -433,12 +436,10 @@ def pull_repo():
                     key = session_key[:32].encode('utf-8')
 
                     # envelope decryption
-                    data = decrypt_with_dk(data, key, server_random)
-                    
+                    data = decrypt_with_dk(data.decode('utf-8'), key, server_random)
                     #start the encryption process
                     cipher = AES.new(key, AES.MODE_GCM)
                     ciphertext, tag = cipher.encrypt_and_digest(data.encode('utf-8'))
-
                     enc_data = bytearray(cipher.nonce)
                     enc_data.extend(tag)
                     enc_data.extend(ciphertext)
