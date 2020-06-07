@@ -3,16 +3,19 @@
 from flask import Flask, request, jsonify
 from src.localdb import IGDB
 import hashlib
+import json
+import requests
 import os
 from datetime import datetime
 from Crypto.Random import get_random_bytes
 from Crypto.Hash import SHA512
 import base64
-from src.kms import get_session_key, get_data_key
+from src.kms import get_root_key, get_data_key
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 from git import Repo
 
+certpath = os.path.join(os.getcwd(),'src','')
 SECRET_MESSAGE = 'very secret'
 app = Flask(__name__)
 
@@ -193,26 +196,15 @@ def create_repo():
         if igdb_repoinf.getd(repo_name) is None:
             client_random = request.json['cr']
             admin = request.json['admin']
+            
             #create server random 
             sr_b = get_random_bytes(64)
             server_random = SHA512.new(sr_b).hexdigest()
 
             #get the session key of the repo
-            session_key = get_session_key(client_random, server_random)
-            # print(session_key)
-            
-            #create the repo
-            c_path = os.path.join('src','dbtest', repo_name)
-            with open(c_path, 'wb+') as f: f.close()
-            # os.mkdir(c_path)
-            # c_repo = Repo.init(c_path)
-            
-            # with open(c_path + "/README.md", 'x') as readme: readme.write('#' + repo_name) 
-            # c_repo.index.add("README.md")
-            # c_repo.index.commit("Initial commit")            
-            # with open(c_path + '.zip', 'wb') as archive_file: c_repo.archive(archive_file, format='zip')
+            root_key = get_root_key(client_random, server_random)
 
-            data = {'admin': admin, 'session_key': session_key, 'server_random': server_random, 'users': [admin]}
+            data = {'admin': admin, 'root_key': root_key, 'server_random': server_random, 'users': [admin]}
             if igdb_repoinf.setd(repo_name, data):
                 d = {'repo_name': repo_name, 'status': 'OK'}
             else:
@@ -234,7 +226,7 @@ def add_user():
             user = request.json['user']
             admin = request.json['admin']
             
-            # data = {'admin': admin, 'session_key': session_key, 'server_random': server_random, 'users': [admin]}
+            # data = {'admin': admin, 'root_key': root_key, 'server_random': server_random, 'users': [admin]}
             # if igdb_repoinf.setd(repo_name, data):
             #     d = {'repo_name': repo_name, 'status': 'OK'}
             # else:
@@ -242,14 +234,14 @@ def add_user():
             repo_info = igdb_repoinf.getd(repo_name)
             repo_users = repo_info['users']
             reg_admin = repo_info['admin']
-            sess_key = repo_info['session_key']
+            sess_key = repo_info['root_key']
             ser_rand = repo_info['server_random']
 
             if reg_admin == admin:
                 if repo_users is not None:
                     if user not in repo_users:
                         repo_users.append(user)
-                        data = {'admin': reg_admin, 'session_key': sess_key, 'server_random': ser_rand, 'users': repo_users}
+                        data = {'admin': reg_admin, 'root_key': sess_key, 'server_random': ser_rand, 'users': repo_users}
                         if igdb_repoinf.setd(repo_name, data):
                             d = {'user': user, 'status': 'OK'}
                         else:
@@ -279,7 +271,7 @@ def rem_user():
             admin = request.json['admin']
             client_random = request.json['cr']
             
-            # data = {'admin': admin, 'session_key': session_key, 'server_random': server_random, 'users': [admin]}
+            # data = {'admin': admin, 'root_key': root_key, 'server_random': server_random, 'users': [admin]}
             # if igdb_repoinf.setd(repo_name, data):
             #     d = {'repo_name': repo_name, 'status': 'OK'}
             # else:
@@ -287,7 +279,7 @@ def rem_user():
             repo_info = igdb_repoinf.getd(repo_name)
             repo_users = repo_info['users']
             reg_admin = repo_info['admin']
-            sess_key = repo_info['session_key']
+            sess_key = repo_info['root_key']
             ser_rand = repo_info['server_random']
 
             if reg_admin == admin:
@@ -301,13 +293,14 @@ def rem_user():
                         new_server_random = SHA512.new(sr_b).hexdigest()
 
                         #get the new session key of the repo
-                        new_session_key = get_session_key(client_random, new_server_random)
-                        db_data = {'admin': reg_admin, 'session_key': new_session_key, 'server_random': new_server_random, 'users': repo_users}
+                        new_root_key = get_root_key(client_random, new_server_random)
+                        db_data = {'admin': reg_admin, 'root_key': new_root_key, 'server_random': new_server_random, 'users': repo_users}
 
                         #read the repo info
-                        c_path = os.path.join('src','dbtest', repo_name)
-                        with open(c_path, 'rb') as f:
-                            data = f.read()
+                        res = requests.post('https://localhost:5684/pull', json={'repo_name':repo_name}, verify=certpath+'ca-public-key.pem',  cert=(certpath+'server-public-key.pem', certpath+'server-plain-key.pem'))
+                        json_data:dict = json.loads(res.text)
+                        data = json_data.get('data', None)
+                        data = bytes.fromhex(data)
 
                         #decrypt the repo with old session key
                         if sess_key is not None:
@@ -317,8 +310,8 @@ def rem_user():
                             data = decrypt_with_dk(data.decode('utf-8'), key, ser_rand)
                             #encrypt the repo with new session key
                             flag:bool = False
-                            if new_session_key is not None:
-                                key = new_session_key[:32].encode('utf-8')
+                            if new_root_key is not None:
+                                key = new_root_key[:32].encode('utf-8')
                                 try:
                                     plain_data = data.encode('utf-8')
                                     
@@ -328,9 +321,11 @@ def rem_user():
                                     ee_plain_data = encrypt_with_dk(plain_data, key, server_random)
                                     #edit the repo
                                     ee_plain_data = ee_plain_data.encode('utf-8')
-                                    c_path = os.path.join('src','dbtest', repo_name)
-                                    with open(c_path, 'wb+') as f:
-                                        f.write(ee_plain_data)
+                                    
+                                    try:
+                                        res = requests.post('https://localhost:5684/push', json={'repo_name':repo_name, 'data':ee_plain_data.hex()}, verify=certpath+'ca-public-key.pem', cert=(certpath+'server-public-key.pem', certpath+'server-plain-key.pem'))
+                                    except ConnectionError:
+                                        print(' Connection Error: Please check validity of the repo...')
                                     
                                     flag = True
                                 except ValueError:
@@ -379,10 +374,10 @@ def push_repo():
                 ciphertext = enc_data[32:]
                 
                 #get session key
-                session_key = repo_info['session_key']
+                root_key = repo_info['root_key']
 
-                if session_key is not None:
-                    key = session_key[:32].encode('utf-8')
+                if root_key is not None:
+                    key = root_key[:32].encode('utf-8')
                     cipher = AES.new(key, AES.MODE_GCM, nonce)
                     try:
                         b64_data = cipher.decrypt_and_verify(ciphertext, tag)
@@ -393,8 +388,13 @@ def push_repo():
                         ee_plain_data = encrypt_with_dk(b64_data, key, server_random)
                         #edit the repo
                         ee_plain_data = ee_plain_data.encode('utf-8')
-                        c_path = os.path.join('src','dbtest', repo_name)
-                        with open(c_path, 'wb+') as f: f.write(ee_plain_data)
+                        # c_path = os.path.join('src','dbtest', repo_name)
+                        # with open(c_path, 'wb+') as f: f.write(ee_plain_data)
+
+                        try:
+                            res = requests.post('https://localhost:5684/push', json={'repo_name':repo_name, 'data':ee_plain_data.hex()}, verify=certpath+'ca-public-key.pem', cert=(certpath+'server-public-key.pem', certpath+'server-plain-key.pem'))
+                        except ConnectionError:
+                            print(' Connection Error: Please check validity of the repo...')
                         
                         d = {'repo_name': repo_name, 'status': 'OK'}
                     except ValueError:
@@ -424,16 +424,22 @@ def pull_repo():
             if user in repo_users:
                 
                 #read the repo
-                c_path = os.path.join('src','dbtest', repo_name)
-                with open(c_path, 'rb') as f:
-                    data = f.read()
+                try:
+                    res = requests.post('https://localhost:5684/pull', json={'repo_name':repo_name}, verify=certpath+'ca-public-key.pem',  cert=(certpath+'server-public-key.pem', certpath+'server-plain-key.pem'))
+                except ConnectionError:
+                    print(' Connection Error: cannot reach repo server...')
+
+                json_data:dict = json.loads(res.text)
+                data = json_data.get('data', None)
+                data = bytes.fromhex(data)
+
                 #get session key
-                session_key = repo_info['session_key']
+                root_key = repo_info['root_key']
                 #get server random
                 server_random = repo_info['server_random']
 
-                if session_key is not None:
-                    key = session_key[:32].encode('utf-8')
+                if root_key is not None:
+                    key = root_key[:32].encode('utf-8')
 
                     # envelope decryption
                     data = decrypt_with_dk(data.decode('utf-8'), key, server_random)
@@ -469,10 +475,10 @@ def get_sk():
             repo_users = repo_info['users']
             if user in repo_users:
                 #get the session key
-                session_key = repo_info['session_key']
-                d = {'session_key': session_key}
+                root_key = repo_info['root_key']
+                d = {'root_key': root_key}
 
                 return jsonify(d)
 
-        return jsonify({'session_key': ''})
+        return jsonify({'root_key': ''})
             

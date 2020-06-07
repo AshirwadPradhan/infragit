@@ -4,6 +4,7 @@ systest:
 	@echo Windows
 clean:
 	rmdir /s /q $(ROOT_D)\src\dbctest
+	rmdir /s /q $(ROOT_D)\src\dbrtest
 	rmdir /s /q $(ROOT_D)\src\dbs
 	rmdir /s /q $(ROOT_D)\src\dbtest
 	rmdir /s /q $(ROOT_D)\src\__pycache__
@@ -11,6 +12,7 @@ clean:
 init:
 	mkdir $(ROOT_D)\src\dbctest
 	mkdir $(ROOT_D)\src\dbtest
+	mkdir $(ROOT_D)\src\dbrtest
 	mkdir $(ROOT_D)\src\dbs
 	echo {} > $(ROOT_D)\src\dbs\logclient.json
 	echo {} > $(ROOT_D)\src\dbs\repoinf.json
@@ -35,12 +37,14 @@ systest:
 	@echo UNAME_S
 clean:
 	rm -rf $(ROOT_L)/src/dbctest
+	rm -rf $(ROOT_L)/src/dbrtest
 	rm -rf $(ROOT_L)/src/dbs
 	rm -rf $(ROOT_L)/src/dbtest
 	rm -rf $(ROOT_L)/src/__pycache__
 	rm -rf $(ROOT_L)/src/*.pem
 init:
 	mkdir $(ROOT_L)/src/dbctest
+	mkdir $(ROOT_L)/src/dbrtest
 	mkdir $(ROOT_L)/src/dbs
 	echo {} > $(ROOT_L)/src/dbs/logclient.json
 	echo {} > $(ROOT_L)/src/dbs/repoinf.json
@@ -55,13 +59,19 @@ else
 endif
 run-server:
 	uwsgi --master --https localhost:5683,src/server-public-key.pem,src/server-private-key.pem --wsgi-file src/gateway.py --callable app --processes 4 --threads 4
+run-repo:
+	uwsgi --master --https localhost:5684,src/repo-public-key.pem,src/repo-private-key.pem,HIGH,!src/ca-public-key.pem --wsgi-file src/repo.py --callable app --processes 4 --threads 4
 run-client:
 	python3 $(ROOT_L)/src/client.py
 ca-cert:
 	python3 $(ROOT_L)/src/ca_cert_gen.py
 server-cert:
 	python3 $(ROOT_L)/src/server_cert_gen.py
-	python3 $(ROOT_L)/src/csr_sign.py
-cert: ca-cert server-cert
+	python3 $(ROOT_L)/src/csr_sign.py 'server'
+	openssl rsa -in $(ROOT_L)/src/server-private-key.pem -out $(ROOT_L)/src/server-plain-key.pem
+repo-cert:
+	python3 $(ROOT_L)/src/repo_cert_gen.py
+	python3 $(ROOT_L)/src/csr_sign.py 'repo'
+cert: ca-cert server-cert repo-cert
 prepare-dev: install init cert
 endif

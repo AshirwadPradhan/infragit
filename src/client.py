@@ -243,9 +243,9 @@ class IGCMD(Cmd):
                 #get the session key for encryption
                 res = requests.post('https://localhost:5683/get_sk', json={'repo_name':inp, 'user':user}, verify=certpath+'ca-public-key.pem')
                 sess_data = json.loads(res.text)
-                session_key = sess_data.get('session_key', None)
-                # print(session_key)
-                if (session_key != ''):
+                root_key = sess_data.get('root_key', None)
+                # print(root_key)
+                if (root_key != ''):
                     #get unencrypted compressed data
                     with open(c_path + '.zip', 'wb+') as archive_file: 
                         c_repo.archive(archive_file, format='zip')
@@ -254,7 +254,7 @@ class IGCMD(Cmd):
                     os.remove(c_path + '.zip')
 
                     #encrypt the data 
-                    key = session_key[:32].encode('utf-8')
+                    key = root_key[:32].encode('utf-8')
                     
                     b64_data = base64.b64encode(data)
                     cipher = AES.new(key, AES.MODE_GCM)
@@ -319,10 +319,10 @@ class IGCMD(Cmd):
                     #get the session key for decryption
                     ress = requests.post('https://localhost:5683/get_sk', json={'repo_name':inp, 'user':user}, verify=certpath+'ca-public-key.pem')
                     sess_data = json.loads(ress.text)
-                    session_key = sess_data.get('session_key', None)
+                    root_key = sess_data.get('root_key', None)
 
-                    if session_key != '':
-                        key = session_key[:32].encode('utf-8')
+                    if root_key != '':
+                        key = root_key[:32].encode('utf-8')
                     
                         cipher = AES.new(key, AES.MODE_GCM, nonce)
                         try:
