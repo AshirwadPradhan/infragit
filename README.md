@@ -25,6 +25,8 @@
     * > `login user` Enter the password when asked for
     * > `creater a` To create a repo with name 'a'
     * > `logout user` To logout of that account
+    * > `adduser user,a` To add a authorized user 'user' to repo named 'a'
+    * > `remuser user,a` To remove a authorized user 'user' from a repo named 'a'
 11. Example 2. Pushing and Pulling from a remote repo.
     * > The folder *dbtest* is the remote repository container and *dbctest* is the local repository container
     * > All the repo like 'a' created in the previous example is stored in human readble form in *dbctest* while data in *dbtest* is stored encrypted
