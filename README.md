@@ -18,7 +18,9 @@
     * When prompted for a password enter `this`
 7. Run the server `make run-server`
     * When prompted for a password enter `this`
-8. Now open a different terminal , navigate into the folder `intragit` and run `make run-client` to run the client
+8. Now open a different terminal, navigate into the folder `intragit` and run `make run-repo` to run the Repo server
+    * When prompted for a password enter `this`
+8. Open another new terminal, navigate into `intragit` and run `make run-client` to run the client
 9.  Now your can use the client for different tasks.
 10. Example 1. Register a user, login and create a repo.
     * > `register user` It will prompt for a password enter your desired password.
